@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  STORE_OWNER
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum StoreOwnershipRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id                        String                  @id @default(uuid())
+  name                      String
+  email                     String                  @unique
+  password                  String
+  role                      Role                    @default(USER)
+  cart                      Cart?
+  bookings                  Booking[]
+  stores                    Store[]
+  storeOwnershipRequests    StoreOwnershipRequest[]
+  reviewedOwnershipRequests StoreOwnershipRequest[] @relation("StoreOwnershipRequestReviewer")
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
+}
+
+model Hostel {
+  id                     String                  @id @default(uuid())
+  name                   String                  @unique
+  stores                 Store[]
+  storeOwnershipRequests StoreOwnershipRequest[]
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+}
+
+model Store {
+  id         String    @id @default(uuid())
+  name       String
+  roomNumber String
+  ownerId    String
+  hostelId   String
+  owner      User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  hostel     Hostel    @relation(fields: [hostelId], references: [id], onDelete: Restrict)
+  items      Item[]
+  bookings   Booking[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([hostelId, roomNumber, name])
+  @@index([ownerId])
+  @@index([hostelId])
+}
+
+model Item {
+  id           String        @id @default(uuid())
+  name         String
+  description  String?
+  price        Decimal       @db.Decimal(10, 2)
+  stock        Int           @default(0)
+  storeId      String
+  store        Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  cartItems    CartItem[]
+  bookingItems BookingItem[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([storeId])
+}
+
+model Cart {
+  id        String     @id @default(uuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  itemId    String
+  quantity  Int      @default(1)
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, itemId])
+  @@index([itemId])
+}
+
+model Booking {
+  id          String        @id @default(uuid())
+  userId      String
+  storeId     String
+  status      BookingStatus @default(PENDING)
+  totalAmount Decimal       @db.Decimal(10, 2)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store       Store         @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  items       BookingItem[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([storeId])
+  @@index([status])
+}
+
+model BookingItem {
+  id        String   @id @default(uuid())
+  bookingId String
+  itemId    String
+  quantity  Int
+  price     Decimal  @db.Decimal(10, 2)
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bookingId])
+  @@index([itemId])
+}
+
+model StoreOwnershipRequest {
+  id           String                      @id @default(uuid())
+  userId       String
+  hostelId     String
+  storeName    String
+  roomNumber   String
+  status       StoreOwnershipRequestStatus @default(PENDING)
+  reviewedById String?
+  reviewedAt   DateTime?
+  user         User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hostel       Hostel                      @relation(fields: [hostelId], references: [id], onDelete: Restrict)
+  reviewedBy   User?                       @relation("StoreOwnershipRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
+
+  @@index([userId])
+  @@index([hostelId])
+  @@index([status])
+  @@index([reviewedById])
+}

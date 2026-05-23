@@ -1,7 +1,10 @@
 import { Router } from 'express';
 
 import { authRouter } from './auth.routes.js';
+import { cartRouter } from './cart.routes.js';
 import { healthRouter } from './health.routes.js';
+import { hostelRouter } from './hostel.routes.js';
+import { storeRouter } from './store.routes.js';
 import {
   adminStoreOwnershipRequestRouter,
   storeOwnershipRequestRouter,
@@ -10,6 +13,9 @@ import {
 export const apiRouter = Router();
 
 apiRouter.use('/auth', authRouter);
+apiRouter.use('/carts', cartRouter);
 apiRouter.use('/health', healthRouter);
+apiRouter.use('/hostels', hostelRouter);
+apiRouter.use('/stores', storeRouter);
 apiRouter.use('/store-ownership-requests', storeOwnershipRequestRouter);
 apiRouter.use('/admin/store-ownership-requests', adminStoreOwnershipRequestRouter);

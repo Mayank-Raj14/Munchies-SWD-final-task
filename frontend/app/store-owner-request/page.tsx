@@ -1,12 +1,28 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 
+import { getHostels } from '@/services/hostels';
 import { createStoreOwnershipRequest } from '@/services/store-ownership-requests';
+import type { Hostel } from '@/types/hostel';
 
 export default function StoreOwnerRequestPage() {
+  const [hostels, setHostels] = useState<Hostel[]>([]);
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const loadHostels = async () => {
+      try {
+        const data = await getHostels();
+        setHostels(data.hostels);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Unable to load hostels.');
+      }
+    };
+
+    void loadHostels();
+  }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -36,12 +52,19 @@ export default function StoreOwnerRequestPage() {
         <h1 className="text-2xl font-semibold text-slate-950">Request Store Ownership</h1>
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <label className="block">
-            <span className="text-sm font-medium text-slate-700">Hostel ID</span>
-            <input
+            <span className="text-sm font-medium text-slate-700">Hostel</span>
+            <select
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-950 outline-none focus:border-slate-900"
               name="hostelId"
               required
-            />
+            >
+              <option value="">Select hostel</option>
+              {hostels.map((hostel) => (
+                <option key={hostel.id} value={hostel.id}>
+                  {hostel.name}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="block">
             <span className="text-sm font-medium text-slate-700">Store Name</span>

@@ -32,7 +32,7 @@ model User {
   email                     String                  @unique
   password                  String
   role                      Role                    @default(USER)
-  cart                      Cart?
+  carts                     Cart[]
   bookings                  Booking[]
   stores                    Store[]
   storeOwnershipRequests    StoreOwnershipRequest[]
@@ -59,6 +59,7 @@ model Store {
   owner      User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   hostel     Hostel    @relation(fields: [hostelId], references: [id], onDelete: Restrict)
   items      Item[]
+  carts      Cart[]
   bookings   Booking[]
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
@@ -72,6 +73,8 @@ model Item {
   id           String        @id @default(uuid())
   name         String
   description  String?
+  category     String
+  imageUrl     String?
   price        Decimal       @db.Decimal(10, 2)
   stock        Int           @default(0)
   storeId      String
@@ -86,11 +89,16 @@ model Item {
 
 model Cart {
   id        String     @id @default(uuid())
-  userId    String     @unique
+  userId    String
+  storeId   String
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store     Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
   items     CartItem[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+
+  @@unique([userId, storeId])
+  @@index([storeId])
 }
 
 model CartItem {

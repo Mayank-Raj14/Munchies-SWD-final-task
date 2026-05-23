@@ -86,10 +86,10 @@ export default function AdminStoreOwnerRequestsPage() {
                   <div>
                     <h2 className="font-medium text-slate-950">{request.storeName}</h2>
                     <p className="mt-1 text-sm text-slate-600">
-                      {request.hostel.name} · Room {request.roomNumber}
+                      {request.hostel.name} - Room {request.roomNumber}
                     </p>
                     <p className="mt-1 text-sm text-slate-600">
-                      {request.user.name} · {request.user.email}
+                      {request.user.name} - {request.user.email}
                     </p>
                   </div>
                   <div className="flex gap-3">

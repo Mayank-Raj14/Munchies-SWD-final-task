@@ -1,17 +1,14 @@
 'use client';
 
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { use, useEffect, useState } from 'react';
 
+import { ApiError, API_ORIGIN } from '@/services/api';
 import { addToCart } from '@/services/carts';
 import { getStore } from '@/services/stores';
 import type { Store } from '@/types/store';
-
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:5000/api').replace(
-  /\/api$/,
-  '',
-);
 
 type StorePageProps = {
   params: Promise<{
@@ -20,6 +17,7 @@ type StorePageProps = {
 };
 
 export default function StorePage({ params }: StorePageProps) {
+  const router = useRouter();
   const { id } = use(params);
   const [store, setStore] = useState<Store | null>(null);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -43,16 +41,29 @@ export default function StorePage({ params }: StorePageProps) {
   }, [id]);
 
   const handleAddToCart = async (itemId: string) => {
+    const item = store?.items?.find((storeItem) => storeItem.id === itemId);
+    const requestedQuantity = quantities[itemId] ?? 1;
+
+    if (!item || requestedQuantity < 1 || requestedQuantity > item.stock) {
+      setMessage('Choose a quantity that is available in stock.');
+      return;
+    }
+
     setActiveItemId(itemId);
     setMessage('');
 
     try {
       await addToCart({
         itemId,
-        quantity: quantities[itemId] ?? 1,
+        quantity: requestedQuantity,
       });
       setMessage('Item added to cart.');
     } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        router.push('/login');
+        return;
+      }
+
       setMessage(error instanceof Error ? error.message : 'Unable to add item to cart.');
     } finally {
       setActiveItemId(null);
@@ -116,7 +127,13 @@ export default function StorePage({ params }: StorePageProps) {
                           Rs. {item.price}
                         </span>
                       </div>
-                      <p className="mt-3 text-sm text-stone-600">{item.description}</p>
+                      {item.description ? (
+                        <p className="mt-3 text-sm text-stone-600">{item.description}</p>
+                      ) : (
+                        <p className="mt-3 text-sm text-stone-500">
+                          Details will be added by the store owner soon.
+                        </p>
+                      )}
                       <p className="mt-3 text-xs font-medium uppercase text-stone-500">
                         Stock: {item.stock}
                       </p>
@@ -129,7 +146,10 @@ export default function StorePage({ params }: StorePageProps) {
                           onChange={(event) =>
                             setQuantities((current) => ({
                               ...current,
-                              [item.id]: Number(event.target.value),
+                              [item.id]: Math.min(
+                                item.stock,
+                                Math.max(1, Number(event.target.value) || 1),
+                              ),
                             }))
                           }
                           type="number"

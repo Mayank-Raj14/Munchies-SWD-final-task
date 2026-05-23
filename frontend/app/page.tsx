@@ -55,10 +55,12 @@ export default function HomePage() {
               className="min-w-0 flex-1 rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-950 shadow-sm outline-none focus:border-emerald-700"
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search stores"
+              suppressHydrationWarning
               value={search}
             />
             <button
               className="rounded-md bg-emerald-700 px-4 py-2 font-medium text-white shadow-sm transition hover:bg-emerald-800"
+              suppressHydrationWarning
               type="submit"
             >
               Search

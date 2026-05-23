@@ -1,7 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 
+import { useRequireAuth } from '@/hooks/use-require-auth';
+import { ApiError } from '@/services/api';
 import {
   approveStoreOwnershipRequest,
   getPendingStoreOwnershipRequests,
@@ -23,11 +26,13 @@ type StoreOwnershipRequest = {
 };
 
 export default function AdminStoreOwnerRequestsPage() {
+  const router = useRouter();
+  const { user, isLoading: isAuthLoading } = useRequireAuth(['ADMIN']);
   const [requests, setRequests] = useState<StoreOwnershipRequest[]>([]);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadRequests = async () => {
+  const loadRequests = useCallback(async () => {
     setIsLoading(true);
     setMessage('');
 
@@ -35,15 +40,29 @@ export default function AdminStoreOwnerRequestsPage() {
       const data = await getPendingStoreOwnershipRequests();
       setRequests(data.requests);
     } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        router.replace('/login');
+        return;
+      }
+
+      if (error instanceof ApiError && error.status === 403) {
+        setMessage('You do not have permission to view admin requests.');
+        return;
+      }
+
       setMessage(error instanceof Error ? error.message : 'Unable to load requests.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [router]);
 
   useEffect(() => {
+    if (isAuthLoading || !user) {
+      return;
+    }
+
     void loadRequests();
-  }, []);
+  }, [isAuthLoading, loadRequests, user]);
 
   const reviewRequest = async (requestId: string, action: 'approve' | 'reject') => {
     setMessage('');

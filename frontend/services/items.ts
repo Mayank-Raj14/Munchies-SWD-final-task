@@ -1,7 +1,5 @@
-import { getAuthToken } from './auth';
+import { API_BASE_URL, authHeaders, parseApiResponse } from './api';
 import type { Item } from '@/types/item';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:5000/api';
 
 export type ItemFormPayload = {
   name: string;
@@ -10,27 +8,6 @@ export type ItemFormPayload = {
   price: string;
   stock: string;
   image?: File | null;
-};
-
-const authHeaders = () => {
-  const token = getAuthToken();
-  const headers: Record<string, string> = {};
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  return headers;
-};
-
-const parseResponse = async (response: Response) => {
-  const data = response.status === 204 ? null : await response.json();
-
-  if (!response.ok) {
-    throw new Error(data?.message ?? 'Inventory request failed');
-  }
-
-  return data;
 };
 
 const toFormData = (payload: ItemFormPayload) => {
@@ -51,20 +28,20 @@ const toFormData = (payload: ItemFormPayload) => {
 
 export const getStoreItems = async (storeId: string) => {
   const response = await fetch(`${API_BASE_URL}/stores/${storeId}/items`, {
-    headers: authHeaders(),
+    headers: authHeaders('form'),
   });
 
-  return parseResponse(response) as Promise<{ items: Item[] }>;
+  return parseApiResponse<{ items: Item[] }>(response, 'Inventory request failed');
 };
 
 export const createStoreItem = async (storeId: string, payload: ItemFormPayload) => {
   const response = await fetch(`${API_BASE_URL}/stores/${storeId}/items`, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: authHeaders('form'),
     body: toFormData(payload),
   });
 
-  return parseResponse(response);
+  return parseApiResponse(response, 'Inventory request failed');
 };
 
 export const updateStoreItem = async (
@@ -74,18 +51,18 @@ export const updateStoreItem = async (
 ) => {
   const response = await fetch(`${API_BASE_URL}/stores/${storeId}/items/${itemId}`, {
     method: 'PATCH',
-    headers: authHeaders(),
+    headers: authHeaders('form'),
     body: toFormData(payload),
   });
 
-  return parseResponse(response);
+  return parseApiResponse(response, 'Inventory request failed');
 };
 
 export const deleteStoreItem = async (storeId: string, itemId: string) => {
   const response = await fetch(`${API_BASE_URL}/stores/${storeId}/items/${itemId}`, {
     method: 'DELETE',
-    headers: authHeaders(),
+    headers: authHeaders('form'),
   });
 
-  return parseResponse(response);
+  return parseApiResponse(response, 'Inventory request failed');
 };

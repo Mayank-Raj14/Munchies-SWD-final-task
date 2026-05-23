@@ -1,33 +1,12 @@
-import { getAuthToken } from './auth';
+import { API_BASE_URL, authHeaders, parseApiResponse } from './api';
 import type { Cart } from '@/types/cart';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:5000/api';
-
-const parseResponse = async (response: Response) => {
-  const data = response.status === 204 ? null : await response.json();
-
-  if (!response.ok) {
-    throw new Error(data?.message ?? 'Cart request failed');
-  }
-
-  return data;
-};
-
-const authHeaders = () => {
-  const token = getAuthToken();
-
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-};
 
 export const getCarts = async () => {
   const response = await fetch(`${API_BASE_URL}/carts`, {
     headers: authHeaders(),
   });
 
-  return parseResponse(response) as Promise<{ carts: Cart[] }>;
+  return parseApiResponse<{ carts: Cart[] }>(response, 'Cart request failed');
 };
 
 export const addToCart = async (payload: { itemId: string; quantity: number }) => {
@@ -37,7 +16,7 @@ export const addToCart = async (payload: { itemId: string; quantity: number }) =
     body: JSON.stringify(payload),
   });
 
-  return parseResponse(response) as Promise<{ cart: Cart }>;
+  return parseApiResponse<{ cart: Cart }>(response, 'Cart request failed');
 };
 
 export const updateCartItem = async (cartItemId: string, quantity: number) => {
@@ -47,7 +26,7 @@ export const updateCartItem = async (cartItemId: string, quantity: number) => {
     body: JSON.stringify({ quantity }),
   });
 
-  return parseResponse(response) as Promise<{ cart: Cart }>;
+  return parseApiResponse<{ cart: Cart }>(response, 'Cart request failed');
 };
 
 export const removeCartItem = async (cartItemId: string) => {
@@ -56,7 +35,7 @@ export const removeCartItem = async (cartItemId: string) => {
     headers: authHeaders(),
   });
 
-  return parseResponse(response);
+  return parseApiResponse(response, 'Cart request failed');
 };
 
 export const clearCart = async (cartId: string) => {
@@ -65,5 +44,5 @@ export const clearCart = async (cartId: string) => {
     headers: authHeaders(),
   });
 
-  return parseResponse(response);
+  return parseApiResponse(response, 'Cart request failed');
 };

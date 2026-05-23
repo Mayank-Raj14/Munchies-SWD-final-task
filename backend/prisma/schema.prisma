@@ -116,20 +116,24 @@ model CartItem {
 }
 
 model Booking {
-  id          String        @id @default(uuid())
-  userId      String
-  storeId     String
-  status      BookingStatus @default(PENDING)
-  totalAmount Decimal       @db.Decimal(10, 2)
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  store       Store         @relation(fields: [storeId], references: [id], onDelete: Restrict)
-  items       BookingItem[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id                           String        @id @default(uuid())
+  userId                       String
+  storeId                      String
+  status                       BookingStatus @default(PENDING)
+  totalAmount                  Decimal       @db.Decimal(10, 2)
+  cancellationRequestedAt      DateTime?
+  cancellationReviewedAt       DateTime?
+  cancellationRejectedAt       DateTime?
+  user                         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store                        Store         @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  items                        BookingItem[]
+  createdAt                    DateTime      @default(now())
+  updatedAt                    DateTime      @updatedAt
 
   @@index([userId])
   @@index([storeId])
   @@index([status])
+  @@index([cancellationRequestedAt])
 }
 
 model BookingItem {

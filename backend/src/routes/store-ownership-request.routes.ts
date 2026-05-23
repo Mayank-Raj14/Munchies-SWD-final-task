@@ -4,6 +4,7 @@ import {
   adminRole,
   approveRequest,
   createRequest,
+  listMyRequests,
   listPendingRequests,
   rejectRequest,
 } from '../controllers/store-ownership-request.controller.js';
@@ -19,6 +20,7 @@ import {
 export const storeOwnershipRequestRouter = Router();
 export const adminStoreOwnershipRequestRouter = Router();
 
+storeOwnershipRequestRouter.get('/', authenticate, asyncHandler(listMyRequests));
 storeOwnershipRequestRouter.post(
   '/',
   authenticate,

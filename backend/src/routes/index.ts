@@ -1,6 +1,7 @@
 import { Router } from 'express';
 
 import { authRouter } from './auth.routes.js';
+import { bookingRouter } from './booking.routes.js';
 import { cartRouter } from './cart.routes.js';
 import { healthRouter } from './health.routes.js';
 import { hostelRouter } from './hostel.routes.js';
@@ -13,6 +14,7 @@ import {
 export const apiRouter = Router();
 
 apiRouter.use('/auth', authRouter);
+apiRouter.use('/bookings', bookingRouter);
 apiRouter.use('/carts', cartRouter);
 apiRouter.use('/health', healthRouter);
 apiRouter.use('/hostels', hostelRouter);

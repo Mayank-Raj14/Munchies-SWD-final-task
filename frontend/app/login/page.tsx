@@ -1,11 +1,16 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 
+import { useAuth } from '@/contexts/auth-context';
+import { ApiError } from '@/services/api';
 import { loginUser, saveAuthToken } from '@/services/auth';
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { setUserFromAuth, refreshUser } = useAuth();
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -22,9 +27,15 @@ export default function LoginPage() {
         password: String(formData.get('password')),
       });
       saveAuthToken(result.token);
-      setMessage('Login successful.');
+      setUserFromAuth(result.user);
+      await refreshUser();
+      router.replace('/');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Login failed.');
+      setMessage(
+        error instanceof ApiError || error instanceof Error
+          ? error.message
+          : 'Login failed.',
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -63,7 +74,7 @@ export default function LoginPage() {
             {isSubmitting ? 'Logging in...' : 'Login'}
           </button>
         </form>
-        {message ? <p className="mt-4 text-sm text-slate-700">{message}</p> : null}
+        {message ? <p className="mt-4 text-sm text-red-700">{message}</p> : null}
         <p className="mt-6 text-sm text-slate-600">
           Need an account?{' '}
           <Link className="font-medium text-slate-950 underline" href="/register">

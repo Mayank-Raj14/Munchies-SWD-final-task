@@ -1,7 +1,9 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 
+import { ApiError } from '@/services/api';
 import { getHostels } from '@/services/hostels';
 import { createStore, deleteStore, getMyStores, updateStore } from '@/services/stores';
 import type { Hostel } from '@/types/hostel';
@@ -21,6 +23,7 @@ const emptyForm: FormState = {
 };
 
 export default function StoreOwnerStoresPage() {
+  const router = useRouter();
   const [stores, setStores] = useState<Store[]>([]);
   const [hostels, setHostels] = useState<Hostel[]>([]);
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -28,7 +31,7 @@ export default function StoreOwnerStoresPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const loadStores = async () => {
+  const loadStores = useCallback(async () => {
     setIsLoading(true);
     setMessage('');
 
@@ -36,11 +39,16 @@ export default function StoreOwnerStoresPage() {
       const data = await getMyStores();
       setStores(data.stores);
     } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        router.replace('/login');
+        return;
+      }
+
       setMessage(error instanceof Error ? error.message : 'Unable to load stores.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [router]);
 
   useEffect(() => {
     const loadPageData = async () => {
@@ -55,7 +63,7 @@ export default function StoreOwnerStoresPage() {
     };
 
     void loadPageData();
-  }, []);
+  }, [loadStores]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

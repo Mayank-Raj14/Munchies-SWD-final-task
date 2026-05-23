@@ -6,6 +6,7 @@ import {
   approveStoreOwnershipRequest,
   createStoreOwnershipRequest,
   listPendingStoreOwnershipRequests,
+  listUserStoreOwnershipRequests,
   rejectStoreOwnershipRequest,
 } from '../services/store-ownership-request.service.js';
 
@@ -22,6 +23,12 @@ export const createRequest = async (req: AuthenticatedRequest, res: Response) =>
 
 export const listPendingRequests = async (_req: AuthenticatedRequest, res: Response) => {
   const requests = await listPendingStoreOwnershipRequests();
+
+  res.status(200).json({ requests });
+};
+
+export const listMyRequests = async (req: AuthenticatedRequest, res: Response) => {
+  const requests = await listUserStoreOwnershipRequests(req.user?.id ?? '');
 
   res.status(200).json({ requests });
 };

@@ -81,12 +81,23 @@ export const listPendingStoreOwnershipRequests = async () => {
   });
 };
 
+export const listUserStoreOwnershipRequests = async (userId: string) => {
+  return prisma.storeOwnershipRequest.findMany({
+    where: { userId },
+    include: requestInclude,
+    orderBy: { createdAt: 'desc' },
+  });
+};
+
 export const approveStoreOwnershipRequest = async (requestId: string, adminId: string) => {
   const request = await prisma.storeOwnershipRequest.findUnique({
     where: { id: requestId },
     select: {
       id: true,
       userId: true,
+      hostelId: true,
+      storeName: true,
+      roomNumber: true,
       status: true,
     },
   });
@@ -100,10 +111,37 @@ export const approveStoreOwnershipRequest = async (requestId: string, adminId: s
   }
 
   return prisma.$transaction(async (tx) => {
+    const storeKey = {
+      hostelId: request.hostelId,
+      roomNumber: request.roomNumber,
+      name: request.storeName,
+    };
+
+    const existingStore = await tx.store.findUnique({
+      where: { hostelId_roomNumber_name: storeKey },
+      select: { ownerId: true },
+    });
+
+    if (existingStore && existingStore.ownerId !== request.userId) {
+      throw new AppError(
+        'A store already exists at this hostel and room with another owner',
+        409,
+      );
+    }
+
     await tx.user.update({
       where: { id: request.userId },
       data: { role: Role.STORE_OWNER },
     });
+
+    if (!existingStore) {
+      await tx.store.create({
+        data: {
+          ...storeKey,
+          ownerId: request.userId,
+        },
+      });
+    }
 
     return tx.storeOwnershipRequest.update({
       where: { id: requestId },

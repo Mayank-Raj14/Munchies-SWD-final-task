@@ -1,8 +1,10 @@
 'use client';
 
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 
+import { ApiError, API_ORIGIN } from '@/services/api';
 import {
   createStoreItem,
   deleteStoreItem,
@@ -13,11 +15,6 @@ import {
 import { getMyStores } from '@/services/stores';
 import type { Item } from '@/types/item';
 import type { Store } from '@/types/store';
-
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:5000/api').replace(
-  /\/api$/,
-  '',
-);
 
 type FormState = {
   id?: string;
@@ -39,6 +36,7 @@ const emptyForm: FormState = {
 };
 
 export default function InventoryPage() {
+  const router = useRouter();
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState('');
   const [items, setItems] = useState<Item[]>([]);
@@ -71,6 +69,11 @@ export default function InventoryPage() {
           await loadItems(data.stores[0].id);
         }
       } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          router.replace('/login');
+          return;
+        }
+
         setMessage(error instanceof Error ? error.message : 'Unable to load inventory.');
       } finally {
         setIsLoading(false);
@@ -78,7 +81,7 @@ export default function InventoryPage() {
     };
 
     void loadInventory();
-  }, []);
+  }, [router]);
 
   const handleStoreChange = async (event: ChangeEvent<HTMLSelectElement>) => {
     const storeId = event.target.value;

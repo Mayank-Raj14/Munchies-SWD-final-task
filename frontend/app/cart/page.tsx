@@ -2,17 +2,18 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useRequireAuth } from '@/hooks/use-require-auth';
+import { checkoutCart } from '@/services/bookings';
+import { ApiError, API_ORIGIN } from '@/services/api';
 import { clearCart, getCarts, removeCartItem, updateCartItem } from '@/services/carts';
 import type { Cart } from '@/types/cart';
 
-const API_ORIGIN = (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:5000/api').replace(
-  /\/api$/,
-  '',
-);
-
 export default function CartPage() {
+  const router = useRouter();
+  const { user, isLoading: isAuthLoading } = useRequireAuth();
   const [carts, setCarts] = useState<Cart[]>([]);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -31,15 +32,24 @@ export default function CartPage() {
       const data = await getCarts();
       setCarts(data.carts);
     } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        router.replace('/login');
+        return;
+      }
+
       setMessage(error instanceof Error ? error.message : 'Unable to load cart.');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
+    if (isAuthLoading || !user) {
+      return;
+    }
+
     void loadCarts();
-  }, [loadCarts]);
+  }, [isAuthLoading, loadCarts, user]);
 
   const replaceCart = (nextCart: Cart) => {
     setCarts((current) => current.map((cart) => (cart.id === nextCart.id ? nextCart : cart)));
@@ -86,6 +96,20 @@ export default function CartPage() {
       setCarts((current) => current.filter((cart) => cart.id !== cartId));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to clear cart.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleCheckout = async (cartId: string) => {
+    setBusyId(cartId);
+    setMessage('');
+
+    try {
+      const data = await checkoutCart(cartId);
+      router.push(`/bookings/success/${data.booking.id}`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to checkout cart.');
     } finally {
       setBusyId(null);
     }
@@ -209,9 +233,19 @@ export default function CartPage() {
                   </div>
 
                   <div className="flex justify-end border-t border-stone-200 pt-4">
-                    <p className="text-sm font-semibold text-stone-950">
-                      Store total: Rs. {Number(cart.total).toFixed(2)}
-                    </p>
+                    <div className="flex flex-col items-end gap-3">
+                      <p className="text-sm font-semibold text-stone-950">
+                        Store total: Rs. {Number(cart.total).toFixed(2)}
+                      </p>
+                      <button
+                        className="h-10 rounded-md bg-emerald-700 px-4 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-stone-300"
+                        disabled={busyId === cart.id}
+                        onClick={() => void handleCheckout(cart.id)}
+                        type="button"
+                      >
+                        {busyId === cart.id ? 'Checking out...' : 'Checkout'}
+                      </button>
+                    </div>
                   </div>
                 </section>
               ))}

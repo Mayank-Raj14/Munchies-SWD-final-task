@@ -1,31 +1,10 @@
-import { getAuthToken } from './auth';
-import type { StoreListResponse } from '@/types/store';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:5000/api';
+import { API_BASE_URL, authHeaders, parseApiResponse } from './api';
+import type { Store, StoreListResponse } from '@/types/store';
 
 type StorePayload = {
   name: string;
   hostelId: string;
   roomNumber: string;
-};
-
-const parseResponse = async (response: Response) => {
-  const data = response.status === 204 ? null : await response.json();
-
-  if (!response.ok) {
-    throw new Error(data?.message ?? 'Store request failed');
-  }
-
-  return data;
-};
-
-const authHeaders = () => {
-  const token = getAuthToken();
-
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
 };
 
 export const getStores = async (params: { search?: string; page?: number } = {}) => {
@@ -40,13 +19,13 @@ export const getStores = async (params: { search?: string; page?: number } = {})
 
   const response = await fetch(`${API_BASE_URL}/stores?${searchParams.toString()}`);
 
-  return parseResponse(response) as Promise<StoreListResponse>;
+  return parseApiResponse<StoreListResponse>(response, 'Store request failed');
 };
 
 export const getStore = async (storeId: string) => {
   const response = await fetch(`${API_BASE_URL}/stores/${storeId}`);
 
-  return parseResponse(response);
+  return parseApiResponse<{ store: Store }>(response, 'Store request failed');
 };
 
 export const getMyStores = async () => {
@@ -54,7 +33,7 @@ export const getMyStores = async () => {
     headers: authHeaders(),
   });
 
-  return parseResponse(response);
+  return parseApiResponse<{ stores: Store[] }>(response, 'Store request failed');
 };
 
 export const createStore = async (payload: StorePayload) => {
@@ -64,7 +43,7 @@ export const createStore = async (payload: StorePayload) => {
     body: JSON.stringify(payload),
   });
 
-  return parseResponse(response);
+  return parseApiResponse<{ store: Store }>(response, 'Store request failed');
 };
 
 export const updateStore = async (storeId: string, payload: StorePayload) => {
@@ -74,7 +53,7 @@ export const updateStore = async (storeId: string, payload: StorePayload) => {
     body: JSON.stringify(payload),
   });
 
-  return parseResponse(response);
+  return parseApiResponse<{ store: Store }>(response, 'Store request failed');
 };
 
 export const deleteStore = async (storeId: string) => {
@@ -83,5 +62,5 @@ export const deleteStore = async (storeId: string) => {
     headers: authHeaders(),
   });
 
-  return parseResponse(response);
+  return parseApiResponse(response, 'Store request failed');
 };

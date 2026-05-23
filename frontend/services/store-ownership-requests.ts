@@ -1,6 +1,4 @@
-import { getAuthToken } from './auth';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:5000/api';
+import { API_BASE_URL, authHeaders, parseApiResponse } from './api';
 
 type CreateRequestPayload = {
   hostelId: string;
@@ -8,23 +6,23 @@ type CreateRequestPayload = {
   roomNumber: string;
 };
 
-const authHeaders = () => {
-  const token = getAuthToken();
-
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+export type StoreOwnershipRequest = {
+  id: string;
+  storeName: string;
+  roomNumber: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  createdAt: string;
+  reviewedAt?: string | null;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: 'USER' | 'STORE_OWNER' | 'ADMIN';
   };
-};
-
-const parseResponse = async (response: Response) => {
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message ?? 'Request failed');
-  }
-
-  return data;
+  hostel: {
+    id: string;
+    name: string;
+  };
 };
 
 export const createStoreOwnershipRequest = async (payload: CreateRequestPayload) => {
@@ -34,7 +32,15 @@ export const createStoreOwnershipRequest = async (payload: CreateRequestPayload)
     body: JSON.stringify(payload),
   });
 
-  return parseResponse(response);
+  return parseApiResponse<{ request: StoreOwnershipRequest }>(response, 'Request failed');
+};
+
+export const getMyStoreOwnershipRequests = async () => {
+  const response = await fetch(`${API_BASE_URL}/store-ownership-requests`, {
+    headers: authHeaders(),
+  });
+
+  return parseApiResponse<{ requests: StoreOwnershipRequest[] }>(response, 'Request failed');
 };
 
 export const getPendingStoreOwnershipRequests = async () => {
@@ -42,7 +48,7 @@ export const getPendingStoreOwnershipRequests = async () => {
     headers: authHeaders(),
   });
 
-  return parseResponse(response);
+  return parseApiResponse<{ requests: StoreOwnershipRequest[] }>(response, 'Request failed');
 };
 
 export const approveStoreOwnershipRequest = async (requestId: string) => {
@@ -54,7 +60,7 @@ export const approveStoreOwnershipRequest = async (requestId: string) => {
     },
   );
 
-  return parseResponse(response);
+  return parseApiResponse(response, 'Request failed');
 };
 
 export const rejectStoreOwnershipRequest = async (requestId: string) => {
@@ -66,5 +72,5 @@ export const rejectStoreOwnershipRequest = async (requestId: string) => {
     },
   );
 
-  return parseResponse(response);
+  return parseApiResponse(response, 'Request failed');
 };

@@ -5,6 +5,14 @@ import multer from 'multer';
 
 const uploadDir = path.join(process.cwd(), 'uploads', 'items');
 
+const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
+const EXTENSION_BY_MIME: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+};
+
 fs.mkdirSync(uploadDir, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -12,9 +20,8 @@ const storage = multer.diskStorage({
     callback(null, uploadDir);
   },
   filename: (_req, file, callback) => {
-    const extension = path.extname(file.originalname);
+    const extension = EXTENSION_BY_MIME[file.mimetype] ?? '.jpg';
     const safeName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`;
-
     callback(null, safeName);
   },
 });
@@ -22,8 +29,10 @@ const storage = multer.diskStorage({
 export const uploadItemImage = multer({
   storage,
   fileFilter: (_req, file, callback) => {
-    if (!file.mimetype.startsWith('image/')) {
-      callback(new Error('Only image uploads are allowed'));
+    const extension = path.extname(file.originalname).toLowerCase();
+
+    if (!file.mimetype.startsWith('image/') || !ALLOWED_EXTENSIONS.has(extension)) {
+      callback(new Error('Only JPG, PNG, WebP, or GIF uploads are allowed'));
       return;
     }
 

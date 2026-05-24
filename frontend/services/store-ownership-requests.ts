@@ -1,4 +1,7 @@
-import { API_BASE_URL, authHeaders, parseApiResponse } from './api';
+import { API_ROUTES } from '@/lib/api-routes';
+import { buildApiUrl } from '@/lib/api-url';
+import { apiFetch, authHeaders, parseApiResponse } from './api';
+import { notifyDataChanged } from '@/lib/sync-events';
 
 type CreateRequestPayload = {
   hostelId: string;
@@ -26,51 +29,75 @@ export type StoreOwnershipRequest = {
 };
 
 export const createStoreOwnershipRequest = async (payload: CreateRequestPayload) => {
-  const response = await fetch(`${API_BASE_URL}/store-ownership-requests`, {
+  const url = buildApiUrl(API_ROUTES.storeOwnershipRequests.list);
+  const response = await apiFetch(url, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(payload),
   });
 
-  return parseApiResponse<{ request: StoreOwnershipRequest }>(response, 'Request failed');
+  const data = await parseApiResponse<{ request: StoreOwnershipRequest }>(
+    response,
+    'Request failed',
+    { url, method: 'POST' },
+  );
+  notifyDataChanged('ownership');
+  return data;
 };
 
 export const getMyStoreOwnershipRequests = async () => {
-  const response = await fetch(`${API_BASE_URL}/store-ownership-requests`, {
+  const url = buildApiUrl(API_ROUTES.storeOwnershipRequests.list);
+  const response = await apiFetch(url, {
     headers: authHeaders(),
   });
 
-  return parseApiResponse<{ requests: StoreOwnershipRequest[] }>(response, 'Request failed');
+  return parseApiResponse<{ requests: StoreOwnershipRequest[] }>(response, 'Request failed', {
+    url,
+    method: 'GET',
+  });
 };
 
 export const getPendingStoreOwnershipRequests = async () => {
-  const response = await fetch(`${API_BASE_URL}/admin/store-ownership-requests`, {
+  const url = buildApiUrl(API_ROUTES.storeOwnershipRequests.adminList);
+  const response = await apiFetch(url, {
     headers: authHeaders(),
   });
 
-  return parseApiResponse<{ requests: StoreOwnershipRequest[] }>(response, 'Request failed');
+  return parseApiResponse<{ requests: StoreOwnershipRequest[] }>(response, 'Request failed', {
+    url,
+    method: 'GET',
+  });
 };
 
 export const approveStoreOwnershipRequest = async (requestId: string) => {
-  const response = await fetch(
-    `${API_BASE_URL}/admin/store-ownership-requests/${requestId}/approve`,
-    {
-      method: 'PATCH',
-      headers: authHeaders(),
-    },
-  );
+  const url = buildApiUrl(API_ROUTES.storeOwnershipRequests.adminApprove(requestId));
+  const response = await apiFetch(url, {
+    method: 'PATCH',
+    headers: authHeaders(),
+  });
 
-  return parseApiResponse(response, 'Request failed');
+  const data = await parseApiResponse(response, 'Request failed', {
+    url,
+    method: 'PATCH',
+  });
+  notifyDataChanged(['auth', 'ownership', 'stores']);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('munchies-auth-refresh-requested'));
+  }
+  return data;
 };
 
 export const rejectStoreOwnershipRequest = async (requestId: string) => {
-  const response = await fetch(
-    `${API_BASE_URL}/admin/store-ownership-requests/${requestId}/reject`,
-    {
-      method: 'PATCH',
-      headers: authHeaders(),
-    },
-  );
+  const url = buildApiUrl(API_ROUTES.storeOwnershipRequests.adminReject(requestId));
+  const response = await apiFetch(url, {
+    method: 'PATCH',
+    headers: authHeaders(),
+  });
 
-  return parseApiResponse(response, 'Request failed');
+  const data = await parseApiResponse(response, 'Request failed', {
+    url,
+    method: 'PATCH',
+  });
+  notifyDataChanged('ownership');
+  return data;
 };

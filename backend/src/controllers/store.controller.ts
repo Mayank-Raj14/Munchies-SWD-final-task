@@ -9,12 +9,16 @@ import {
   listStoresByOwner,
   updateStore,
 } from '../services/store.service.js';
+import type { StoreListQuery } from '../validators/store.validator.js';
 
 export const getStores = async (req: AuthenticatedRequest, res: Response) => {
+  const query = req.query as unknown as StoreListQuery;
+
   const result = await listStores({
-    page: Number(req.query.page ?? 1),
-    limit: Number(req.query.limit ?? 12),
-    search: req.query.search ? String(req.query.search) : undefined,
+    page: query.page,
+    limit: query.limit,
+    search: query.search,
+    hostelId: query.hostelId,
   });
 
   res.status(200).json(result);

@@ -18,15 +18,15 @@ export const formatBookingStatus = (status: BookingStatus) => {
 export const bookingStatusBadgeClass = (status: BookingStatus) => {
   switch (status) {
     case 'PENDING':
-      return 'bg-amber-50 text-amber-800';
+      return 'bg-amber-500/15 text-amber-200';
     case 'CONFIRMED':
-      return 'bg-emerald-50 text-emerald-800';
+      return 'bg-emerald-500/15 text-emerald-200';
     case 'CANCELLED':
-      return 'bg-red-50 text-red-800';
+      return 'bg-red-500/15 text-red-200';
     case 'COMPLETED':
-      return 'bg-slate-100 text-slate-800';
+      return 'bg-white/10 text-foreground-secondary';
     default:
-      return 'bg-stone-100 text-stone-800';
+      return 'bg-white/10 text-foreground-secondary';
   }
 };
 

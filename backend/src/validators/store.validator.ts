@@ -4,9 +4,17 @@ export const storeListQuerySchema = z.object({
   query: z.object({
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(50).default(12),
-    search: z.string().trim().optional(),
+    search: z
+      .string()
+      .trim()
+      .max(100)
+      .optional()
+      .transform((value) => (value && value.length > 0 ? value : undefined)),
+    hostelId: z.string().uuid('Invalid hostel id').optional(),
   }),
 });
+
+export type StoreListQuery = z.infer<typeof storeListQuerySchema>['query'];
 
 export const storeIdParamSchema = z.object({
   params: z.object({

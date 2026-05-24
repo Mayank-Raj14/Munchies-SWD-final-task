@@ -1,17 +1,56 @@
 node_modules
 
+# ── Environment files (never commit — copy from env.example) ─────
 .env
 .env.*
-!.env.example
-!.env.*.example
+**/.env
+**/.env.*
 .envrc
+.env.local
+.env.*.local
+**/.env.local
+**/.env.*.local
 
+# ── Secrets, keys, and credential stores ─────────────────────────
 *.pem
 *.key
+*.crt
+*.cert
+*.csr
 *.p12
 *.pfx
+*.jks
+*.keystore
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
 credentials.json
 secrets.json
+secrets/
+.secret
+*.secret
+*.secrets
+service-account*.json
+serviceAccount*.json
+firebase-adminsdk*.json
+.npmrc
+.pgpass
+*.token
+auth.json
+.aws/
+.azure/
+.gcp/
+.vercel/
+.netlify/
+
+uploads
+uploads/
+backend/uploads/
+
+frontend/.next/
+frontend/out/
+backend/dist/
 
 .next
 out
@@ -19,14 +58,33 @@ out
 
 dist
 build
+.turbo
+.cache
+.codex-logs/
+.parcel-cache
+.eslintcache
 
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+logs
+*.log
 
 .DS_Store
 Thumbs.db
+desktop.ini
 
-.vscode
+.vscode/
+.idea/
+*.swp
+*.swo
 
 coverage
+coverage/
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+!.env.example
+!**/.env.example

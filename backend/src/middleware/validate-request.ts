@@ -1,6 +1,8 @@
 import type { RequestHandler } from 'express';
 import type { ZodSchema } from 'zod';
 
+import { deleteUploadedFile } from '../utils/file-storage.js';
+
 export const validateRequest = (schema: ZodSchema): RequestHandler => {
   return (req, res, next) => {
     const result = schema.safeParse({
@@ -10,6 +12,8 @@ export const validateRequest = (schema: ZodSchema): RequestHandler => {
     });
 
     if (!result.success) {
+      void deleteUploadedFile(req.file?.path ? `/uploads/items/${req.file.filename}` : undefined);
+
       res.status(400).json({
         message: 'Validation failed',
         errors: result.error.flatten().fieldErrors,

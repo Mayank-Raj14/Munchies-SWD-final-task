@@ -2,7 +2,19 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ReceiptText } from 'lucide-react';
 
+import {
+  EmptyState,
+  LoadingSpinner,
+  MarketSurface,
+  Notice,
+  PageContainer,
+  SectionHeader,
+  divideClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from '@/components/marketplace-ui';
 import {
   bookingStatusBadgeClass,
   formatBookingDate,
@@ -17,6 +29,7 @@ import {
 } from '@/services/bookings';
 import type { Booking, BookingStatus } from '@/types/booking';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { useSyncedRefresh } from '@/lib/sync-events';
 
 const statusSections: { status: BookingStatus; title: string; description: string }[] = [
   {
@@ -43,39 +56,61 @@ const statusSections: { status: BookingStatus; title: string; description: strin
 
 export default function StoreOwnerOrdersPage() {
   const router = useRouter();
-  const { isLoading: isAuthLoading } = useRequireAuth(['STORE_OWNER', 'ADMIN']);
+  const { isLoading: isAuthLoading, isAuthorized } = useRequireAuth(['STORE_OWNER', 'ADMIN']);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const loadBookings = useCallback(async () => {
-    setIsLoading(true);
-    setError('');
-
-    try {
-      const data = await getBookings('store');
-      setBookings(data.bookings);
-    } catch (loadError) {
-      if (loadError instanceof ApiError && loadError.status === 401) {
-        router.replace('/login');
-        return;
+  const loadBookings = useCallback(
+    async (options: { silent?: boolean } = {}) => {
+      if (!options.silent) {
+        setIsLoading(true);
       }
+      setError('');
 
-      setError(loadError instanceof Error ? loadError.message : 'Unable to load orders.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [router]);
+      try {
+        const data = await getBookings('store');
+        setBookings(data.bookings);
+      } catch (loadError) {
+        if (loadError instanceof ApiError && loadError.status === 401) {
+          router.replace('/login');
+          return;
+        }
+
+        setError(loadError instanceof Error ? loadError.message : 'Unable to load orders.');
+      } finally {
+        if (!options.silent) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [router],
+  );
 
   useEffect(() => {
-    if (isAuthLoading) {
+    if (isAuthLoading || !isAuthorized) {
       return;
     }
 
     void loadBookings();
-  }, [isAuthLoading, loadBookings]);
+  }, [isAuthLoading, isAuthorized, loadBookings]);
+
+  useSyncedRefresh(['bookings'], () => loadBookings({ silent: true }), {
+    enabled: isAuthorized,
+  });
+
+  if (isAuthLoading || !isAuthorized) {
+    return (
+      <PageContainer>
+        <div className="flex flex-col items-center gap-3 py-16">
+          <LoadingSpinner className="h-6 w-6" />
+          <p className="text-sm text-foreground-muted">Checking access…</p>
+        </div>
+      </PageContainer>
+    );
+  }
 
   const bookingsByStatus = useMemo(() => {
     return statusSections.reduce(
@@ -94,6 +129,10 @@ export default function StoreOwnerOrdersPage() {
   };
 
   const handleStatusUpdate = async (bookingId: string, status: BookingStatus) => {
+    if (busyId) {
+      return;
+    }
+
     setBusyId(bookingId);
     setMessage('');
     setError('');
@@ -110,6 +149,10 @@ export default function StoreOwnerOrdersPage() {
   };
 
   const handleCancellationAction = async (bookingId: string, action: 'approve' | 'reject') => {
+    if (busyId) {
+      return;
+    }
+
     setBusyId(bookingId);
     setMessage('');
     setError('');
@@ -121,7 +164,9 @@ export default function StoreOwnerOrdersPage() {
           : await rejectBookingCancellation(bookingId);
 
       replaceBooking(data.booking);
-      setMessage(action === 'approve' ? 'Cancellation approved.' : 'Cancellation request rejected.');
+      setMessage(
+        action === 'approve' ? 'Cancellation approved.' : 'Cancellation request rejected.',
+      );
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : 'Cancellation action failed.');
     } finally {
@@ -130,38 +175,47 @@ export default function StoreOwnerOrdersPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-10">
-      <section className="mx-auto w-full max-w-6xl">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-sm font-medium uppercase text-slate-500">Store owner</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-950">Order management</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-600">
-              Accept, reject, and complete orders from your stores. Changes save to the database
-              immediately.
-            </p>
-          </div>
-          <button
-            className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-800 hover:border-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={isLoading}
-            onClick={() => void loadBookings()}
-            type="button"
-          >
-            Refresh
-          </button>
-        </div>
+    <PageContainer size="wide">
+      <section>
+        <SectionHeader
+          action={
+            <button
+              className={secondaryButtonClass}
+              disabled={isLoading}
+              onClick={() => void loadBookings()}
+              type="button"
+            >
+              Refresh
+            </button>
+          }
+          description="Accept, complete, or review cancellations."
+          title="Seller orders"
+        />
 
-        {message ? <p className="mt-6 text-sm font-medium text-emerald-700">{message}</p> : null}
-        {error ? <p className="mt-6 text-sm font-medium text-red-700">{error}</p> : null}
+        {message ? (
+          <div className="mt-6">
+            <Notice tone="success">{message}</Notice>
+          </div>
+        ) : null}
+        {error ? (
+          <div className="mt-6">
+            <Notice tone="danger">{error}</Notice>
+          </div>
+        ) : null}
 
         {isLoading ? (
-          <p className="mt-10 text-sm text-slate-600">Loading orders...</p>
+          <div className="mt-8 grid gap-5 lg:grid-cols-2">
+            {[0, 1, 2, 3].map((item) => (
+              <MarketSurface className="h-48 animate-pulse" key={item} />
+            ))}
+          </div>
         ) : bookings.length === 0 ? (
-          <div className="mt-10 rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
-            <h2 className="text-lg font-semibold text-slate-950">No orders yet</h2>
-            <p className="mt-2 text-sm text-slate-600">
-              When customers place orders at your stores, they will appear here.
-            </p>
+          <div className="mt-8">
+            <EmptyState
+              description="When customers place orders at your stores, they will appear here."
+              icon={ReceiptText}
+              title="No orders yet"
+            />
           </div>
         ) : (
           <div className="mt-8 space-y-10">
@@ -171,34 +225,34 @@ export default function StoreOwnerOrdersPage() {
               return (
                 <section key={section.status}>
                   <div className="mb-4">
-                    <h2 className="text-xl font-semibold text-slate-950">{section.title}</h2>
-                    <p className="mt-1 text-sm text-slate-600">{section.description}</p>
+                    <h2 className="text-xl font-semibold text-foreground">{section.title}</h2>
+                    <p className="mt-1 text-sm font-medium text-foreground-secondary">{section.description}</p>
                   </div>
 
                   {sectionBookings.length === 0 ? (
-                    <p className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-6 text-sm text-slate-600">
+                    <p className="rounded-lg border border-dashed border-border bg-surface px-4 py-6 text-sm font-medium text-foreground-secondary">
                       No {section.title.toLowerCase()}.
                     </p>
                   ) : (
                     <div className="space-y-4">
                       {sectionBookings.map((booking) => (
                         <article
-                          className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+                          className="rounded-lg border border-border bg-surface p-5  transition hover:border-border-strong"
                           key={booking.id}
                         >
-                          <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
                             <div>
-                              <h3 className="text-lg font-semibold text-slate-950">
+                              <h3 className="text-lg font-bold text-foreground">
                                 {booking.store.name}
                               </h3>
-                              <p className="mt-1 text-sm text-slate-600">
+                              <p className="mt-1 text-sm font-medium text-foreground-secondary">
                                 {booking.store.hostel.name} - Room {booking.store.roomNumber}
                               </p>
-                              <p className="mt-2 text-sm text-slate-600">
+                              <p className="mt-2 text-sm font-medium text-foreground-secondary">
                                 Placed {formatBookingDate(booking.createdAt)}
                               </p>
                               {booking.user ? (
-                                <p className="mt-2 text-sm text-slate-950">
+                                <p className="mt-2 text-sm font-bold text-foreground">
                                   Customer: {booking.user.name} ({booking.user.email})
                                 </p>
                               ) : null}
@@ -216,19 +270,19 @@ export default function StoreOwnerOrdersPage() {
                             </p>
                           ) : null}
 
-                          <div className="divide-y divide-slate-200">
+                          <div className={divideClass}>
                             {booking.items.map((bookingItem) => (
                               <div
                                 className="flex items-center justify-between gap-4 py-3 text-sm"
                                 key={bookingItem.id}
                               >
                                 <div>
-                                  <p className="font-medium text-slate-950">
+                                  <p className="font-bold text-foreground">
                                     {bookingItem.item.name}
                                   </p>
-                                  <p className="mt-1 text-slate-600">Qty {bookingItem.quantity}</p>
+                                  <p className="mt-1 text-foreground-secondary">Qty {bookingItem.quantity}</p>
                                 </div>
-                                <p className="font-medium text-slate-950">
+                                <p className="font-bold text-foreground">
                                   Rs.{' '}
                                   {(Number(bookingItem.price) * bookingItem.quantity).toFixed(2)}
                                 </p>
@@ -236,23 +290,30 @@ export default function StoreOwnerOrdersPage() {
                             ))}
                           </div>
 
-                          <div className="flex flex-col items-end gap-3 border-t border-slate-200 pt-4">
-                            <p className="text-sm font-semibold text-slate-950">
+                          <div className="flex flex-col items-end gap-3 border-t border-border pt-4">
+                            <p className="text-sm font-bold text-foreground">
                               Total: Rs. {Number(booking.totalAmount).toFixed(2)}
                             </p>
 
                             {booking.status === 'PENDING' && !booking.cancellationRequestedAt ? (
                               <div className="flex flex-wrap justify-end gap-3">
                                 <button
-                                  className="h-10 rounded-md bg-slate-950 px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                                  className={primaryButtonClass}
                                   disabled={busyId === booking.id}
                                   onClick={() => void handleStatusUpdate(booking.id, 'CONFIRMED')}
                                   type="button"
                                 >
-                                  {busyId === booking.id ? 'Saving...' : 'Accept order'}
+                                  {busyId === booking.id ? (
+                                    <>
+                                      <LoadingSpinner />
+                                      Saving
+                                    </>
+                                  ) : (
+                                    'Accept order'
+                                  )}
                                 </button>
                                 <button
-                                  className="h-10 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-800 hover:border-red-400 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                  className="inline-flex h-11 items-center justify-center rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-foreground-secondary shadow-sm transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
                                   disabled={busyId === booking.id}
                                   onClick={() => void handleStatusUpdate(booking.id, 'CANCELLED')}
                                   type="button"
@@ -264,12 +325,19 @@ export default function StoreOwnerOrdersPage() {
 
                             {booking.status === 'CONFIRMED' && !booking.cancellationRequestedAt ? (
                               <button
-                                className="h-10 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-800 hover:border-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+                                className={secondaryButtonClass}
                                 disabled={busyId === booking.id}
                                 onClick={() => void handleStatusUpdate(booking.id, 'COMPLETED')}
                                 type="button"
                               >
-                                {busyId === booking.id ? 'Saving...' : 'Mark completed'}
+                                {busyId === booking.id ? (
+                                  <>
+                                    <LoadingSpinner />
+                                    Saving
+                                  </>
+                                ) : (
+                                  'Mark completed'
+                                )}
                               </button>
                             ) : null}
 
@@ -278,17 +346,21 @@ export default function StoreOwnerOrdersPage() {
                             booking.status !== 'COMPLETED' ? (
                               <div className="flex flex-wrap justify-end gap-3">
                                 <button
-                                  className="h-10 rounded-md bg-slate-950 px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                                  className={primaryButtonClass}
                                   disabled={busyId === booking.id}
-                                  onClick={() => void handleCancellationAction(booking.id, 'approve')}
+                                  onClick={() =>
+                                    void handleCancellationAction(booking.id, 'approve')
+                                  }
                                   type="button"
                                 >
                                   Approve cancellation
                                 </button>
                                 <button
-                                  className="h-10 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-800 hover:border-red-400 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                  className="inline-flex h-11 items-center justify-center rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-foreground-secondary shadow-sm transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
                                   disabled={busyId === booking.id}
-                                  onClick={() => void handleCancellationAction(booking.id, 'reject')}
+                                  onClick={() =>
+                                    void handleCancellationAction(booking.id, 'reject')
+                                  }
                                   type="button"
                                 >
                                   Reject cancellation
@@ -306,6 +378,6 @@ export default function StoreOwnerOrdersPage() {
           </div>
         )}
       </section>
-    </main>
+    </PageContainer>
   );
 }

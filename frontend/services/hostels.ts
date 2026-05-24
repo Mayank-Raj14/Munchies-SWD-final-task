@@ -1,8 +1,14 @@
-import { API_BASE_URL, parseApiResponse } from './api';
+import { API_ROUTES } from '@/lib/api-routes';
+import { buildApiUrl } from '@/lib/api-url';
+import { apiFetch, parseApiResponse } from './api';
 import type { Hostel } from '@/types/hostel';
 
 export const getHostels = async () => {
-  const response = await fetch(`${API_BASE_URL}/hostels`);
+  const url = buildApiUrl(API_ROUTES.hostels);
+  const response = await apiFetch(url);
 
-  return parseApiResponse<{ hostels: Hostel[] }>(response, 'Unable to load hostels');
+  return parseApiResponse<{ hostels: Hostel[] }>(response, 'Unable to load hostels', {
+    url,
+    method: 'GET',
+  });
 };

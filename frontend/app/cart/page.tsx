@@ -4,10 +4,25 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ShoppingCart } from 'lucide-react';
 
+import {
+  EmptyState,
+  LoadingSpinner,
+  MarketSurface,
+  Notice,
+  PageContainer,
+  SectionHeader,
+  divideClass,
+  dangerOutlineButtonClass,
+  orderCardClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from '@/components/marketplace-ui';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { useSyncedRefresh } from '@/lib/sync-events';
 import { checkoutCart } from '@/services/bookings';
-import { ApiError, API_ORIGIN } from '@/services/api';
+import { ApiError, buildAssetUrl } from '@/services/api';
 import { clearCart, getCarts, removeCartItem, updateCartItem } from '@/services/carts';
 import type { Cart } from '@/types/cart';
 
@@ -24,24 +39,31 @@ export default function CartPage() {
     [carts],
   );
 
-  const loadCarts = useCallback(async () => {
-    setIsLoading(true);
-    setMessage('');
-
-    try {
-      const data = await getCarts();
-      setCarts(data.carts);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        router.replace('/login');
-        return;
+  const loadCarts = useCallback(
+    async (options: { silent?: boolean } = {}) => {
+      if (!options.silent) {
+        setIsLoading(true);
       }
+      setMessage('');
 
-      setMessage(error instanceof Error ? error.message : 'Unable to load cart.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [router]);
+      try {
+        const data = await getCarts();
+        setCarts(data.carts);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          router.replace('/login');
+          return;
+        }
+
+        setMessage(error instanceof Error ? error.message : 'Unable to load cart.');
+      } finally {
+        if (!options.silent) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [router],
+  );
 
   useEffect(() => {
     if (isAuthLoading || !user) {
@@ -51,12 +73,16 @@ export default function CartPage() {
     void loadCarts();
   }, [isAuthLoading, loadCarts, user]);
 
+  useSyncedRefresh(['cart', 'inventory'], () => loadCarts({ silent: true }), {
+    enabled: !isAuthLoading && Boolean(user),
+  });
+
   const replaceCart = (nextCart: Cart) => {
     setCarts((current) => current.map((cart) => (cart.id === nextCart.id ? nextCart : cart)));
   };
 
   const handleQuantity = async (cartItemId: string, quantity: number) => {
-    if (quantity < 1) {
+    if (quantity < 1 || busyId) {
       return;
     }
 
@@ -74,12 +100,16 @@ export default function CartPage() {
   };
 
   const handleRemove = async (cartItemId: string) => {
+    if (busyId) {
+      return;
+    }
+
     setBusyId(cartItemId);
     setMessage('');
 
     try {
       await removeCartItem(cartItemId);
-      await loadCarts();
+      await loadCarts({ silent: true });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to remove item.');
     } finally {
@@ -88,6 +118,10 @@ export default function CartPage() {
   };
 
   const handleClear = async (cartId: string) => {
+    if (busyId) {
+      return;
+    }
+
     setBusyId(cartId);
     setMessage('');
 
@@ -102,6 +136,10 @@ export default function CartPage() {
   };
 
   const handleCheckout = async (cartId: string) => {
+    if (busyId) {
+      return;
+    }
+
     setBusyId(cartId);
     setMessage('');
 
@@ -116,165 +154,176 @@ export default function CartPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f7f8f3] px-6 py-10">
-      <section className="mx-auto w-full max-w-6xl">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-sm font-medium uppercase text-emerald-700">Your carts</p>
-            <h1 className="mt-3 text-4xl font-semibold text-stone-950">Cart</h1>
-            <p className="mt-3 max-w-2xl text-base leading-7 text-stone-600">
-              Items are grouped by store so every hostel room keeps a separate cart.
-            </p>
-          </div>
-          <Link
-            className="inline-flex h-10 items-center justify-center rounded-md border border-stone-300 bg-white px-4 text-sm font-medium text-stone-800 shadow-sm hover:border-emerald-700"
-            href="/"
-          >
+    <PageContainer>
+      <SectionHeader
+        action={
+          <Link className={secondaryButtonClass} href="/">
             Browse stores
           </Link>
+        }
+        description="Grouped by store."
+        title="Cart"
+      />
+
+      {message ? (
+        <div className="mt-6">
+          <Notice tone="warning">{message}</Notice>
         </div>
+      ) : null}
 
-        {message ? <p className="mt-6 text-sm font-medium text-stone-700">{message}</p> : null}
-
-        {isLoading ? (
-          <p className="mt-10 text-sm text-stone-600">Loading cart...</p>
-        ) : carts.length === 0 ? (
-          <div className="mt-10 rounded-lg border border-dashed border-stone-300 bg-white p-8 text-center">
-            <h2 className="text-lg font-semibold text-stone-950">Your cart is empty</h2>
-            <p className="mt-2 text-sm text-stone-600">Add items from a store to see them here.</p>
+      {isLoading ? (
+        <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_320px]">
+          <div className="space-y-5">
+            {[0, 1].map((item) => (
+              <MarketSurface className="h-52 animate-pulse" key={item} />
+            ))}
           </div>
-        ) : (
-          <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_320px]">
-            <div className="space-y-5">
-              {carts.map((cart) => (
-                <section
-                  className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm"
-                  key={cart.id}
-                >
-                  <div className="flex flex-col gap-3 border-b border-stone-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <h2 className="text-lg font-semibold text-stone-950">{cart.store.name}</h2>
-                      <p className="mt-1 text-sm text-stone-600">
-                        {cart.store.hostel.name} - Room {cart.store.roomNumber}
-                      </p>
-                    </div>
-                    <button
-                      className="h-9 rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-700 hover:border-red-300 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={busyId === cart.id}
-                      onClick={() => void handleClear(cart.id)}
-                      type="button"
-                    >
-                      Clear cart
-                    </button>
+          <MarketSurface className="hidden h-56 animate-pulse lg:block" />
+        </div>
+      ) : carts.length === 0 ? (
+        <div className="mt-8">
+          <EmptyState
+            action={
+              <Link className={primaryButtonClass} href="/">
+                Browse stores
+              </Link>
+            }
+            description="Items you add will show up here."
+            icon={ShoppingCart}
+            title="Your cart is empty"
+          />
+        </div>
+      ) : (
+        <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_320px]">
+          <div className="space-y-5">
+            {carts.map((cart) => (
+              <section className={orderCardClass} key={cart.id}>
+                <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">{cart.store.name}</h2>
+                    <p className="mt-1 text-sm text-foreground-secondary">
+                      {cart.store.hostel.name} - Room {cart.store.roomNumber}
+                    </p>
                   </div>
+                  <button
+                    className={dangerOutlineButtonClass}
+                    disabled={busyId === cart.id}
+                    onClick={() => void handleClear(cart.id)}
+                    type="button"
+                  >
+                    Clear cart
+                  </button>
+                </div>
 
-                  <div className="divide-y divide-stone-200">
-                    {cart.items.map((cartItem) => (
-                      <article
-                        className="grid gap-4 py-4 sm:grid-cols-[88px_1fr_auto]"
-                        key={cartItem.id}
-                      >
-                        <div className="relative h-24 overflow-hidden rounded-md bg-stone-100">
-                          {cartItem.item.imageUrl ? (
-                            <Image
-                              alt={cartItem.item.name}
-                              className="object-cover"
-                              fill
-                              src={`${API_ORIGIN}${cartItem.item.imageUrl}`}
-                            />
-                          ) : null}
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-stone-950">{cartItem.item.name}</h3>
-                          <p className="mt-1 text-sm text-stone-600">{cartItem.item.category}</p>
-                          <p className="mt-2 text-sm font-medium text-stone-950">
-                            Rs. {cartItem.item.price}
-                          </p>
-                        </div>
-                        <div className="flex flex-col items-start gap-3 sm:items-end">
-                          <div className="flex h-10 items-center rounded-md border border-stone-300 bg-white">
-                            <button
-                              className="h-10 w-10 text-lg text-stone-700 disabled:cursor-not-allowed disabled:text-stone-300"
-                              disabled={cartItem.quantity <= 1 || busyId === cartItem.id}
-                              onClick={() =>
-                                void handleQuantity(cartItem.id, cartItem.quantity - 1)
-                              }
-                              type="button"
-                            >
-                              -
-                            </button>
-                            <span className="w-10 text-center text-sm font-medium text-stone-950">
-                              {cartItem.quantity}
-                            </span>
-                            <button
-                              className="h-10 w-10 text-lg text-stone-700 disabled:cursor-not-allowed disabled:text-stone-300"
-                              disabled={
-                                cartItem.quantity >= cartItem.item.stock || busyId === cartItem.id
-                              }
-                              onClick={() =>
-                                void handleQuantity(cartItem.id, cartItem.quantity + 1)
-                              }
-                              type="button"
-                            >
-                              +
-                            </button>
-                          </div>
+                <div className={divideClass}>
+                  {cart.items.map((cartItem) => (
+                    <article
+                      className="grid gap-4 py-4 sm:grid-cols-[88px_1fr_auto]"
+                      key={cartItem.id}
+                    >
+                      <div className="relative h-24 overflow-hidden rounded-lg bg-surface-raised">
+                        {cartItem.item.imageUrl ? (
+                          <Image
+                            alt={cartItem.item.name}
+                            className="object-cover"
+                            fill
+                            src={buildAssetUrl(cartItem.item.imageUrl)}
+                          />
+                        ) : null}
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-foreground">{cartItem.item.name}</h3>
+                        <p className="mt-1 text-sm text-foreground-secondary">{cartItem.item.category}</p>
+                        <p className="mt-2 text-sm font-medium text-foreground">
+                          Rs. {cartItem.item.price}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-start gap-3 sm:items-end">
+                        <div className="flex h-10 items-center rounded-lg border border-border bg-canvas">
                           <button
-                            className="text-sm font-medium text-red-700 hover:text-red-800 disabled:cursor-not-allowed disabled:text-stone-400"
-                            disabled={busyId === cartItem.id}
-                            onClick={() => void handleRemove(cartItem.id)}
+                            className="h-10 w-10 text-lg text-foreground-secondary disabled:cursor-not-allowed disabled:text-foreground-faint"
+                            disabled={cartItem.quantity <= 1 || busyId === cartItem.id}
+                            onClick={() => void handleQuantity(cartItem.id, cartItem.quantity - 1)}
                             type="button"
                           >
-                            Remove
+                            -
+                          </button>
+                          <span className="w-10 text-center text-sm font-medium text-foreground">
+                            {cartItem.quantity}
+                          </span>
+                          <button
+                            className="h-10 w-10 text-lg text-foreground-secondary disabled:cursor-not-allowed disabled:text-foreground-faint"
+                            disabled={
+                              cartItem.quantity >= cartItem.item.stock || busyId === cartItem.id
+                            }
+                            onClick={() => void handleQuantity(cartItem.id, cartItem.quantity + 1)}
+                            type="button"
+                          >
+                            +
                           </button>
                         </div>
-                      </article>
-                    ))}
-                  </div>
+                        <button
+                          className="text-sm font-medium text-red-300 hover:text-red-200 disabled:cursor-not-allowed disabled:text-slate-600"
+                          disabled={busyId === cartItem.id}
+                          onClick={() => void handleRemove(cartItem.id)}
+                          type="button"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
 
-                  <div className="flex justify-end border-t border-stone-200 pt-4">
-                    <div className="flex flex-col items-end gap-3">
-                      <p className="text-sm font-semibold text-stone-950">
-                        Store total: Rs. {Number(cart.total).toFixed(2)}
-                      </p>
-                      <button
-                        className="h-10 rounded-md bg-emerald-700 px-4 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-stone-300"
-                        disabled={busyId === cart.id}
-                        onClick={() => void handleCheckout(cart.id)}
-                        type="button"
-                      >
-                        {busyId === cart.id ? 'Checking out...' : 'Checkout'}
-                      </button>
-                    </div>
+                <div className="flex justify-end border-t border-border pt-4">
+                  <div className="flex flex-col items-end gap-3">
+                    <p className="text-sm font-semibold text-foreground">
+                      Store total: Rs. {Number(cart.total).toFixed(2)}
+                    </p>
+                    <button
+                      className={primaryButtonClass}
+                      disabled={busyId === cart.id}
+                      onClick={() => void handleCheckout(cart.id)}
+                      type="button"
+                    >
+                      {busyId === cart.id ? (
+                        <>
+                          <LoadingSpinner />
+                          Checking out
+                        </>
+                      ) : (
+                        'Checkout'
+                      )}
+                    </button>
                   </div>
-                </section>
-              ))}
-            </div>
-
-            <aside className="h-fit rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-stone-950">Totals</h2>
-              <div className="mt-4 space-y-3 text-sm text-stone-600">
-                <div className="flex justify-between">
-                  <span>Stores</span>
-                  <span className="font-medium text-stone-950">{carts.length}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Items</span>
-                  <span className="font-medium text-stone-950">
-                    {carts.reduce((total, cart) => total + cart.items.length, 0)}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-5 border-t border-stone-200 pt-5">
-                <div className="flex justify-between text-base font-semibold text-stone-950">
-                  <span>Total</span>
-                  <span>Rs. {grandTotal.toFixed(2)}</span>
-                </div>
-              </div>
-            </aside>
+              </section>
+            ))}
           </div>
-        )}
-      </section>
-    </main>
+
+          <aside className={`${orderCardClass} h-fit`}>
+            <h2 className="text-lg font-semibold text-foreground">Totals</h2>
+            <div className="mt-4 space-y-3 text-sm text-foreground-secondary">
+              <div className="flex justify-between">
+                <span>Stores</span>
+                <span className="font-medium text-foreground">{carts.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Items</span>
+                <span className="font-medium text-foreground">
+                  {carts.reduce((total, cart) => total + cart.items.length, 0)}
+                </span>
+              </div>
+            </div>
+            <div className="mt-5 border-t border-border pt-5">
+              <div className="flex justify-between text-base font-semibold text-foreground">
+                <span>Total</span>
+                <span>Rs. {grandTotal.toFixed(2)}</span>
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
+    </PageContainer>
   );
 }

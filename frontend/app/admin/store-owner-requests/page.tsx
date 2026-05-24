@@ -2,8 +2,21 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { ShieldCheck } from 'lucide-react';
 
+import {
+  EmptyState,
+  LoadingSpinner,
+  MarketSurface,
+  Notice,
+  PageContainer,
+  SectionHeader,
+  divideClass,
+  dangerButtonClass,
+  primaryButtonClass,
+} from '@/components/marketplace-ui';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { useSyncedRefresh } from '@/lib/sync-events';
 import { ApiError } from '@/services/api';
 import {
   approveStoreOwnershipRequest,
@@ -31,30 +44,38 @@ export default function AdminStoreOwnerRequestsPage() {
   const [requests, setRequests] = useState<StoreOwnershipRequest[]>([]);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  const loadRequests = useCallback(async () => {
-    setIsLoading(true);
-    setMessage('');
-
-    try {
-      const data = await getPendingStoreOwnershipRequests();
-      setRequests(data.requests);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        router.replace('/login');
-        return;
+  const loadRequests = useCallback(
+    async (options: { silent?: boolean } = {}) => {
+      if (!options.silent) {
+        setIsLoading(true);
       }
+      setMessage('');
 
-      if (error instanceof ApiError && error.status === 403) {
-        setMessage('You do not have permission to view admin requests.');
-        return;
+      try {
+        const data = await getPendingStoreOwnershipRequests();
+        setRequests(data.requests);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          router.replace('/login');
+          return;
+        }
+
+        if (error instanceof ApiError && error.status === 403) {
+          setMessage('You do not have permission to view admin requests.');
+          return;
+        }
+
+        setMessage(error instanceof Error ? error.message : 'Unable to load requests.');
+      } finally {
+        if (!options.silent) {
+          setIsLoading(false);
+        }
       }
-
-      setMessage(error instanceof Error ? error.message : 'Unable to load requests.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [router]);
+    },
+    [router],
+  );
 
   useEffect(() => {
     if (isAuthLoading || !user) {
@@ -64,7 +85,16 @@ export default function AdminStoreOwnerRequestsPage() {
     void loadRequests();
   }, [isAuthLoading, loadRequests, user]);
 
+  useSyncedRefresh(['ownership'], () => loadRequests({ silent: true }), {
+    enabled: !isAuthLoading && Boolean(user),
+  });
+
   const reviewRequest = async (requestId: string, action: 'approve' | 'reject') => {
+    if (busyId) {
+      return;
+    }
+
+    setBusyId(requestId);
     setMessage('');
 
     try {
@@ -80,47 +110,78 @@ export default function AdminStoreOwnerRequestsPage() {
       setMessage(`Request ${action}d.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Review failed.');
+    } finally {
+      setBusyId(null);
     }
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-10">
-      <section className="mx-auto w-full max-w-5xl">
-        <h1 className="text-2xl font-semibold text-slate-950">Store Owner Requests</h1>
+    <PageContainer>
+      <section>
+        <SectionHeader description="Approve or reject seller applications." title="Approvals" />
 
-        {message ? <p className="mt-4 text-sm text-slate-700">{message}</p> : null}
+        {message ? (
+          <div className="mt-6">
+            <Notice
+              tone={
+                message.includes('permission') || message.includes('failed') ? 'danger' : 'success'
+              }
+            >
+              {message}
+            </Notice>
+          </div>
+        ) : null}
 
-        <div className="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <MarketSurface className="mt-6 overflow-hidden">
           {isLoading ? (
-            <p className="p-6 text-sm text-slate-600">Loading requests...</p>
+            <div className="space-y-4 p-6">
+              {[0, 1, 2].map((item) => (
+                <div className="h-24 animate-pulse rounded-lg bg-surface-raised" key={item} />
+              ))}
+            </div>
           ) : requests.length === 0 ? (
-            <p className="p-6 text-sm text-slate-600">No pending requests.</p>
+            <div className="p-6">
+              <EmptyState
+                description="New seller applications will appear here for review."
+                icon={ShieldCheck}
+                title="No pending requests"
+              />
+            </div>
           ) : (
-            <div className="divide-y divide-slate-200">
+            <div className={divideClass}>
               {requests.map((request) => (
                 <article
                   className="grid gap-4 p-6 md:grid-cols-[1fr_auto] md:items-center"
                   key={request.id}
                 >
                   <div>
-                    <h2 className="font-medium text-slate-950">{request.storeName}</h2>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <h2 className="font-semibold text-foreground">{request.storeName}</h2>
+                    <p className="mt-1 text-sm font-medium text-foreground-secondary">
                       {request.hostel.name} - Room {request.roomNumber}
                     </p>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <p className="mt-1 text-sm font-medium text-foreground-secondary">
                       {request.user.name} - {request.user.email}
                     </p>
                   </div>
                   <div className="flex gap-3">
                     <button
-                      className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white"
+                      className={primaryButtonClass}
+                      disabled={busyId === request.id}
                       onClick={() => void reviewRequest(request.id, 'approve')}
                       type="button"
                     >
-                      Approve
+                      {busyId === request.id ? (
+                        <>
+                          <LoadingSpinner />
+                          Saving
+                        </>
+                      ) : (
+                        'Approve'
+                      )}
                     </button>
                     <button
-                      className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-950"
+                      className={dangerButtonClass}
+                      disabled={busyId === request.id}
                       onClick={() => void reviewRequest(request.id, 'reject')}
                       type="button"
                     >
@@ -131,8 +192,8 @@ export default function AdminStoreOwnerRequestsPage() {
               ))}
             </div>
           )}
-        </div>
+        </MarketSurface>
       </section>
-    </main>
+    </PageContainer>
   );
 }

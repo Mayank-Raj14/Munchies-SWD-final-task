@@ -32,11 +32,13 @@ export const createItemForStore = async (req: AuthenticatedRequest, res: Respons
 };
 
 export const updateItemForStore = async (req: AuthenticatedRequest, res: Response) => {
+  const nextImageUrl = imageUrlFromRequest(req);
+
   const item = await updateStoreItem(req.params.storeId ?? '', req.params.itemId ?? '', req.user!, {
     ...req.body,
     ...(req.body.price !== undefined ? { price: Number(req.body.price) } : {}),
     ...(req.body.stock !== undefined ? { stock: Number(req.body.stock) } : {}),
-    ...(imageUrlFromRequest(req) ? { imageUrl: imageUrlFromRequest(req) } : {}),
+    ...(nextImageUrl ? { imageUrl: nextImageUrl } : {}),
   });
 
   res.status(200).json({ item });

@@ -13,9 +13,10 @@ export const signAuthToken = (payload: JwtPayload) => {
 
   return jwt.sign(payload, env.JWT_SECRET, {
     expiresIn,
+    algorithm: 'HS256',
   });
 };
 
 export const verifyAuthToken = (token: string) => {
-  return jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+  return jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as JwtPayload;
 };

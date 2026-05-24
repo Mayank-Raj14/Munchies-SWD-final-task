@@ -1,3 +1,7 @@
+// Munchies — hostel marketplace data model
+// Relation names on the "many" side (User arrays) are explicit for Prisma Studio.
+// Child relation fields used in API responses (user, store, items, owner, hostel) are unchanged.
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -6,6 +10,8 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
 
 enum Role {
   USER
@@ -26,129 +32,133 @@ enum StoreOwnershipRequestStatus {
   REJECTED
 }
 
-model User {
-  id                        String                  @id @default(uuid())
-  name                      String
-  email                     String                  @unique
-  password                  String
-  role                      Role                    @default(USER)
-  carts                     Cart[]
-  bookings                  Booking[]
-  stores                    Store[]
-  storeOwnershipRequests    StoreOwnershipRequest[]
-  reviewedOwnershipRequests StoreOwnershipRequest[] @relation("StoreOwnershipRequestReviewer")
-  createdAt                 DateTime                @default(now())
-  updatedAt                 DateTime                @updatedAt
+enum WarningType {
+  MANUAL
+  ORDER_EXPIRED
 }
 
+// ─── User & access control ───────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Marketplace activity (customer)
+  customerBookings  Booking[]               @relation("BookingCustomer")
+  customerCarts     Cart[]                  @relation("CartCustomer")
+  ownedStores       Store[]                 @relation("StoreOwner")
+  ownershipRequests StoreOwnershipRequest[] @relation("OwnershipApplicant")
+
+  // Moderation — warnings
+  receivedWarnings Warning[] @relation("WarningRecipient")
+  issuedWarnings   Warning[] @relation("WarningIssuer")
+
+  // Moderation — blocks
+  globalBlock         GlobalUserBlock?  @relation("BlockedUser")
+  issuedGlobalBlocks  GlobalUserBlock[] @relation("GlobalBlockIssuer")
+  storeBlocksReceived StoreUserBlock[]  @relation("StoreBlockedUser")
+  storeBlocksIssued   StoreUserBlock[]  @relation("StoreBlockIssuer")
+
+  // Admin review queues
+  reviewedCancellationBookings Booking[]               @relation("BookingCancellationReviewer")
+  reviewedOwnershipRequests    StoreOwnershipRequest[] @relation("OwnershipReviewer")
+
+  @@index([role])
+}
+
+model GlobalUserBlock {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  blockedById String?
+  reason      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  blockedUser User  @relation("BlockedUser", fields: [userId], references: [id], onDelete: Cascade)
+  blockedBy   User? @relation("GlobalBlockIssuer", fields: [blockedById], references: [id], onDelete: SetNull)
+
+  @@index([blockedById])
+}
+
+model StoreUserBlock {
+  id          String   @id @default(uuid())
+  userId      String
+  storeId     String
+  blockedById String?
+  reason      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  blockedUser User  @relation("StoreBlockedUser", fields: [userId], references: [id], onDelete: Cascade)
+  store       Store @relation("StoreBlocks", fields: [storeId], references: [id], onDelete: Cascade)
+  blockedBy   User? @relation("StoreBlockIssuer", fields: [blockedById], references: [id], onDelete: SetNull)
+
+  @@unique([userId, storeId])
+  @@index([userId])
+  @@index([storeId])
+  @@index([blockedById])
+}
+
+model Warning {
+  id         String      @id @default(uuid())
+  userId     String
+  storeId    String?
+  bookingId  String?     @unique
+  issuedById String?
+  type       WarningType @default(MANUAL)
+  reason     String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  // API serializes as `user` (warned customer)
+  user     User     @relation("WarningRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  store    Store?   @relation("StoreWarnings", fields: [storeId], references: [id], onDelete: SetNull)
+  booking  Booking? @relation("BookingWarning", fields: [bookingId], references: [id], onDelete: SetNull)
+  issuedBy User?    @relation("WarningIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([storeId])
+  @@index([issuedById])
+  @@index([type])
+}
+
+// ─── Campus & stores ─────────────────────────────────────────────────────────
+
 model Hostel {
-  id                     String                  @id @default(uuid())
-  name                   String                  @unique
-  stores                 Store[]
-  storeOwnershipRequests StoreOwnershipRequest[]
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stores            Store[]
+  ownershipRequests StoreOwnershipRequest[] @relation("HostelOwnershipRequests")
 }
 
 model Store {
-  id         String    @id @default(uuid())
+  id         String   @id @default(uuid())
   name       String
   roomNumber String
   ownerId    String
   hostelId   String
-  owner      User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  hostel     Hostel    @relation(fields: [hostelId], references: [id], onDelete: Restrict)
-  items      Item[]
-  carts      Cart[]
-  bookings   Booking[]
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  owner        User             @relation("StoreOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  hostel       Hostel           @relation(fields: [hostelId], references: [id], onDelete: Restrict)
+  items        Item[]
+  carts        Cart[]           @relation("StoreCarts")
+  bookings     Booking[]        @relation("StoreBookings")
+  warnings     Warning[]        @relation("StoreWarnings")
+  blockedUsers StoreUserBlock[] @relation("StoreBlocks")
 
   @@unique([hostelId, roomNumber, name])
   @@index([ownerId])
   @@index([hostelId])
-}
-
-model Item {
-  id           String        @id @default(uuid())
-  name         String
-  description  String?
-  category     String
-  imageUrl     String?
-  price        Decimal       @db.Decimal(10, 2)
-  stock        Int           @default(0)
-  storeId      String
-  store        Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  cartItems    CartItem[]
-  bookingItems BookingItem[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-
-  @@index([storeId])
-}
-
-model Cart {
-  id        String     @id @default(uuid())
-  userId    String
-  storeId   String
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  store     Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  items     CartItem[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-
-  @@unique([userId, storeId])
-  @@index([storeId])
-}
-
-model CartItem {
-  id        String   @id @default(uuid())
-  cartId    String
-  itemId    String
-  quantity  Int      @default(1)
-  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([cartId, itemId])
-  @@index([itemId])
-}
-
-model Booking {
-  id                           String        @id @default(uuid())
-  userId                       String
-  storeId                      String
-  status                       BookingStatus @default(PENDING)
-  totalAmount                  Decimal       @db.Decimal(10, 2)
-  cancellationRequestedAt      DateTime?
-  cancellationReviewedAt       DateTime?
-  cancellationRejectedAt       DateTime?
-  user                         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  store                        Store         @relation(fields: [storeId], references: [id], onDelete: Restrict)
-  items                        BookingItem[]
-  createdAt                    DateTime      @default(now())
-  updatedAt                    DateTime      @updatedAt
-
-  @@index([userId])
-  @@index([storeId])
-  @@index([status])
-  @@index([cancellationRequestedAt])
-}
-
-model BookingItem {
-  id        String   @id @default(uuid())
-  bookingId String
-  itemId    String
-  quantity  Int
-  price     Decimal  @db.Decimal(10, 2)
-  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  item      Item     @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([bookingId])
-  @@index([itemId])
 }
 
 model StoreOwnershipRequest {
@@ -160,14 +170,124 @@ model StoreOwnershipRequest {
   status       StoreOwnershipRequestStatus @default(PENDING)
   reviewedById String?
   reviewedAt   DateTime?
-  user         User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  hostel       Hostel                      @relation(fields: [hostelId], references: [id], onDelete: Restrict)
-  reviewedBy   User?                       @relation("StoreOwnershipRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   createdAt    DateTime                    @default(now())
   updatedAt    DateTime                    @updatedAt
+
+  user       User   @relation("OwnershipApplicant", fields: [userId], references: [id], onDelete: Cascade)
+  hostel     Hostel @relation("HostelOwnershipRequests", fields: [hostelId], references: [id], onDelete: Restrict)
+  reviewedBy User?  @relation("OwnershipReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([hostelId])
   @@index([status])
   @@index([reviewedById])
+}
+
+// ─── Catalog ─────────────────────────────────────────────────────────────────
+
+model Item {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  category    String
+  imageUrl    String?
+  price       Decimal  @db.Decimal(10, 2)
+  stock       Int      @default(0)
+  isAvailable Boolean  @default(true)
+  storeId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store        Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  cartLines    CartItem[]    @relation("ItemCartLines")
+  bookingLines BookingItem[] @relation("ItemBookingLines")
+
+  @@index([storeId])
+  @@index([storeId, isAvailable])
+}
+
+// ─── Cart & checkout ─────────────────────────────────────────────────────────
+
+model Cart {
+  id        String   @id @default(uuid())
+  userId    String
+  storeId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User       @relation("CartCustomer", fields: [userId], references: [id], onDelete: Cascade)
+  store Store      @relation("StoreCarts", fields: [storeId], references: [id], onDelete: Cascade)
+  items CartItem[] @relation("CartLines")
+
+  @@unique([userId, storeId])
+  @@index([userId])
+  @@index([storeId])
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  itemId    String
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cart Cart @relation("CartLines", fields: [cartId], references: [id], onDelete: Cascade)
+  item Item @relation("ItemCartLines", fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, itemId])
+  @@index([cartId])
+  @@index([itemId])
+}
+
+// ─── Orders ────────────────────────────────────────────────────────────────────
+
+model Booking {
+  id                       String        @id @default(uuid())
+  userId                   String
+  storeId                  String
+  status                   BookingStatus @default(PENDING)
+  totalAmount              Decimal       @db.Decimal(10, 2)
+  expiresAt                DateTime?
+  inventoryRestoredAt      DateTime?
+  cancellationRequestedAt  DateTime?
+  cancellationReviewedAt   DateTime?
+  cancellationRejectedAt   DateTime?
+  cancellationReviewedById String?
+  cancellationReason       String?
+  expiredWarningIssuedAt   DateTime?
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+
+  user                   User          @relation("BookingCustomer", fields: [userId], references: [id], onDelete: Cascade)
+  store                  Store         @relation("StoreBookings", fields: [storeId], references: [id], onDelete: Restrict)
+  cancellationReviewedBy User?         @relation("BookingCancellationReviewer", fields: [cancellationReviewedById], references: [id], onDelete: SetNull)
+  items                  BookingItem[] @relation("BookingLines")
+  warning                Warning?      @relation("BookingWarning")
+
+  @@index([userId])
+  @@index([storeId])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([inventoryRestoredAt])
+  @@index([cancellationRequestedAt])
+  @@index([cancellationReviewedById])
+  @@index([storeId, status, createdAt])
+  @@index([userId, status, createdAt])
+}
+
+model BookingItem {
+  id        String   @id @default(uuid())
+  bookingId String
+  itemId    String
+  quantity  Int
+  price     Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  booking Booking @relation("BookingLines", fields: [bookingId], references: [id], onDelete: Cascade)
+  item    Item    @relation("ItemBookingLines", fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@index([bookingId])
+  @@index([itemId])
 }

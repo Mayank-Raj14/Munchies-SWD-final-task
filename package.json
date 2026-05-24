@@ -12,7 +12,11 @@
     "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prisma:generate": "npm run prisma:generate --workspace backend",
+    "prisma:migrate": "npm run prisma:migrate --workspace backend",
+    "prisma:migrate:deploy": "npm run prisma:migrate:deploy --workspace backend",
+    "prisma:studio": "npm run prisma:studio --workspace backend"
   },
   "devDependencies": {
     "prettier": "^3.3.3"

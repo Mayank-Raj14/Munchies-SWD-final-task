@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { use, useEffect, useState } from 'react';
 
+import { MarketSurface, primaryButtonClass, secondaryButtonClass } from '@/components/marketplace-ui';
 import { ApiError } from '@/services/api';
 import { getBooking } from '@/services/bookings';
 import type { Booking } from '@/types/booking';
@@ -42,53 +43,47 @@ export default function BookingSuccessPage({ params }: BookingSuccessPageProps) 
   }, [id, router]);
 
   return (
-    <main className="min-h-screen bg-[#f7f8f3] px-6 py-10">
-      <section className="mx-auto w-full max-w-3xl rounded-lg border border-stone-200 bg-white p-8 shadow-sm">
-        <p className="text-sm font-medium uppercase text-emerald-700">Booking created</p>
-        <h1 className="mt-3 text-3xl font-semibold text-stone-950">Checkout successful</h1>
+    <main className="min-h-screen px-6 py-10">
+      <MarketSurface className="mx-auto w-full max-w-3xl p-8">
+        <p className="text-sm font-medium uppercase tracking-wide text-accent">Booking created</p>
+        <h1 className="mt-2 text-2xl font-semibold text-foreground">Checkout successful</h1>
 
-        {isLoading ? <p className="mt-8 text-sm text-stone-600">Loading booking...</p> : null}
-        {message ? <p className="mt-8 text-sm text-stone-700">{message}</p> : null}
+        {isLoading ? <p className="mt-8 text-sm text-foreground-secondary">Loading booking...</p> : null}
+        {message ? <p className="mt-8 text-sm text-foreground-secondary">{message}</p> : null}
 
         {booking ? (
           <div className="mt-8">
-            <div className="rounded-lg border border-stone-200 p-5">
+            <div className="rounded-xl border border-border p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-stone-950">{booking.store.name}</h2>
-                  <p className="mt-1 text-sm text-stone-600">
+                  <h2 className="text-lg font-semibold text-foreground">{booking.store.name}</h2>
+                  <p className="mt-1 text-sm text-foreground-secondary">
                     {booking.store.hostel.name} - Room {booking.store.roomNumber}
                   </p>
                 </div>
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800">
+                <span className="rounded-full bg-accent-muted px-3 py-1 text-xs font-medium text-accent">
                   {booking.status}
                 </span>
               </div>
-              <p className="mt-5 text-sm font-semibold text-stone-950">
+              <p className="mt-5 text-sm font-semibold text-foreground">
                 Total: Rs. {Number(booking.totalAmount).toFixed(2)}
               </p>
               {booking.cancellationRequestedAt && booking.status !== 'CANCELLED' ? (
-                <p className="mt-3 text-sm font-medium text-stone-700">Cancellation requested</p>
+                <p className="mt-3 text-sm font-medium text-foreground-secondary">Cancellation requested</p>
               ) : null}
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">
-              <Link
-                className="inline-flex h-10 items-center justify-center rounded-md bg-emerald-700 px-4 text-sm font-medium text-white hover:bg-emerald-800"
-                href="/bookings"
-              >
+              <Link className={primaryButtonClass} href="/bookings">
                 View booking history
               </Link>
-              <Link
-                className="inline-flex h-10 items-center justify-center rounded-md border border-stone-300 px-4 text-sm font-medium text-stone-800 hover:border-emerald-700"
-                href="/"
-              >
+              <Link className={secondaryButtonClass} href="/">
                 Browse stores
               </Link>
             </div>
           </div>
         ) : null}
-      </section>
+      </MarketSurface>
     </main>
   );
 }

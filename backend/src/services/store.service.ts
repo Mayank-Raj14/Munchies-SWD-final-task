@@ -2,11 +2,15 @@ import { Role } from '@prisma/client';
 
 import { prisma } from '../prisma/client.js';
 import { AppError } from '../utils/app-error.js';
+import { buildPaginationMeta, getPagination } from '../utils/pagination.js';
+import { buildStoreListWhere } from '../utils/search.js';
+import { assertUserNotGloballyBlocked } from './governance.service.js';
 
 type ListStoresInput = {
   page: number;
   limit: number;
   search?: string;
+  hostelId?: string;
 };
 
 type StoreInput = {
@@ -35,41 +39,28 @@ const storeInclude = {
 const storeDetailInclude = {
   ...storeInclude,
   items: {
+    where: { isAvailable: true },
     orderBy: { createdAt: 'desc' as const },
   },
 } as const;
 
-export const listStores = async ({ page, limit, search }: ListStoresInput) => {
-  const where = search
-    ? {
-        OR: [
-          { name: { contains: search, mode: 'insensitive' as const } },
-          { roomNumber: { contains: search, mode: 'insensitive' as const } },
-          { hostel: { name: { contains: search, mode: 'insensitive' as const } } },
-        ],
-      }
-    : {};
-
-  const skip = (page - 1) * limit;
+export const listStores = async ({ page, limit, search, hostelId }: ListStoresInput) => {
+  const where = buildStoreListWhere({ search, hostelId });
+  const { page: safePage, limit: safeLimit, skip, take } = getPagination({ page, limit });
   const [stores, total] = await prisma.$transaction([
     prisma.store.findMany({
       where,
       include: storeInclude,
       orderBy: { createdAt: 'desc' },
       skip,
-      take: limit,
+      take,
     }),
     prisma.store.count({ where }),
   ]);
 
   return {
     stores,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
+    pagination: buildPaginationMeta(safePage, safeLimit, total),
   };
 };
 
@@ -95,6 +86,8 @@ export const listStoresByOwner = async (ownerId: string) => {
 };
 
 export const createStore = async (ownerId: string, input: StoreInput) => {
+  await assertUserNotGloballyBlocked(ownerId, 'create stores');
+
   const hostel = await prisma.hostel.findUnique({
     where: { id: input.hostelId },
     select: { id: true },
@@ -102,6 +95,21 @@ export const createStore = async (ownerId: string, input: StoreInput) => {
 
   if (!hostel) {
     throw new AppError('Hostel not found', 404);
+  }
+
+  const existingStore = await prisma.store.findUnique({
+    where: {
+      hostelId_roomNumber_name: {
+        hostelId: input.hostelId,
+        roomNumber: input.roomNumber,
+        name: input.name,
+      },
+    },
+    select: { id: true },
+  });
+
+  if (existingStore) {
+    throw new AppError('A store already exists with these details', 409);
   }
 
   return prisma.store.create({

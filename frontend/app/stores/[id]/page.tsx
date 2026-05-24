@@ -3,9 +3,29 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { use, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useState } from 'react';
+import {
+  ArrowLeft,
+  Minus,
+  PackageOpen,
+  Plus,
+  ShoppingCart,
+  Store as StoreIcon,
+} from 'lucide-react';
 
-import { ApiError, API_ORIGIN } from '@/services/api';
+import {
+  badgeClass,
+  EmptyState,
+  itemCardClass,
+  LoadingSpinner,
+  MarketSurface,
+  Notice,
+  PageContainer,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from '@/components/marketplace-ui';
+import { useSyncedRefresh } from '@/lib/sync-events';
+import { ApiError, buildAssetUrl } from '@/services/api';
 import { addToCart } from '@/services/carts';
 import { getStore } from '@/services/stores';
 import type { Store } from '@/types/store';
@@ -21,161 +41,238 @@ export default function StorePage({ params }: StorePageProps) {
   const { id } = use(params);
   const [store, setStore] = useState<Store | null>(null);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [message, setMessage] = useState('');
+  const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; text: string } | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadStore = async () => {
+  const loadStore = useCallback(
+    async (options: { silent?: boolean } = {}) => {
       try {
         const data = await getStore(id);
         setStore(data.store);
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : 'Unable to load store.');
+        setNotice({
+          tone: 'danger',
+          text: error instanceof Error ? error.message : 'Unable to load store.',
+        });
       } finally {
-        setIsLoading(false);
+        if (!options.silent) {
+          setIsLoading(false);
+        }
       }
-    };
+    },
+    [id],
+  );
 
+  useEffect(() => {
     void loadStore();
-  }, [id]);
+  }, [loadStore]);
+
+  useSyncedRefresh(['inventory', 'stores'], () => loadStore({ silent: true }));
+
+  const setQuantity = (itemId: string, stock: number, quantity: number) => {
+    setQuantities((current) => ({
+      ...current,
+      [itemId]: Math.min(stock, Math.max(1, quantity)),
+    }));
+  };
 
   const handleAddToCart = async (itemId: string) => {
+    if (activeItemId) {
+      return;
+    }
+
     const item = store?.items?.find((storeItem) => storeItem.id === itemId);
     const requestedQuantity = quantities[itemId] ?? 1;
 
     if (!item || requestedQuantity < 1 || requestedQuantity > item.stock) {
-      setMessage('Choose a quantity that is available in stock.');
+      setNotice({ tone: 'danger', text: 'Choose a quantity that is available in stock.' });
       return;
     }
 
     setActiveItemId(itemId);
-    setMessage('');
+    setNotice(null);
 
     try {
       await addToCart({
         itemId,
         quantity: requestedQuantity,
       });
-      setMessage('Item added to cart.');
+      setNotice({ tone: 'success', text: 'Item added to cart.' });
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         router.push('/login');
         return;
       }
 
-      setMessage(error instanceof Error ? error.message : 'Unable to add item to cart.');
+      setNotice({
+        tone: 'danger',
+        text: error instanceof Error ? error.message : 'Unable to add item to cart.',
+      });
     } finally {
       setActiveItemId(null);
     }
   };
 
   return (
-    <main className="min-h-screen bg-[#f7f8f3] px-6 py-10">
-      <section className="mx-auto w-full max-w-5xl rounded-lg border border-stone-200 bg-white p-8 shadow-sm">
-        <Link className="text-sm font-medium text-stone-600 underline" href="/">
-          Back to stores
-        </Link>
+    <PageContainer size="wide">
+      <Link className={`mb-4 ${secondaryButtonClass}`} href="/">
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        Back to stores
+      </Link>
 
-        {isLoading ? <p className="mt-8 text-sm text-stone-600">Loading store...</p> : null}
-        {message ? <p className="mt-8 text-sm text-stone-700">{message}</p> : null}
+      {notice ? (
+        <div className="mb-5">
+          <Notice tone={notice.tone}>{notice.text}</Notice>
+        </div>
+      ) : null}
 
-        {store ? (
-          <div className="mt-8">
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800">
-              {store.hostel.name}
-            </span>
-            <h1 className="mt-4 text-3xl font-semibold text-stone-950">{store.name}</h1>
-            <dl className="mt-6 grid gap-4 sm:grid-cols-2">
-              <div>
-                <dt className="text-sm font-medium text-stone-500">Room</dt>
-                <dd className="mt-1 text-base text-stone-950">{store.roomNumber}</dd>
+      {isLoading ? (
+        <MarketSurface className="h-80 animate-pulse">
+          <span className="sr-only">Loading store</span>
+        </MarketSurface>
+      ) : store ? (
+        <>
+          <MarketSurface className="overflow-hidden">
+            <div className="grid lg:grid-cols-[minmax(0,1fr)_240px]">
+              <div className="px-5 py-5 sm:px-6">
+                <span className={badgeClass}>{store.hostel.name}</span>
+                <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                  {store.name}
+                </h1>
+                <p className="mt-1 text-sm text-foreground-muted">Room {store.roomNumber}</p>
               </div>
-              <div>
-                <dt className="text-sm font-medium text-stone-500">Owner</dt>
-                <dd className="mt-1 text-base text-stone-950">{store.owner.name}</dd>
+              <div className="border-t border-border bg-surface-raised/80 p-4 lg:border-l lg:border-t-0">
+                <div className="flex h-full flex-col justify-between gap-4 rounded-xl border border-border-subtle bg-surface p-4">
+                  <StoreIcon className="h-8 w-8 text-accent" aria-hidden="true" />
+                  <div className="mt-6 space-y-3 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <span className="text-foreground-muted">Room</span>
+                      <span className="font-medium text-foreground">{store.roomNumber}</span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-foreground-muted">Owner</span>
+                      <span className="truncate font-medium text-foreground">{store.owner.name}</span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-foreground-muted">Items</span>
+                      <span className="font-medium text-foreground">{store.items?.length ?? 0}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </dl>
+            </div>
+          </MarketSurface>
 
-            <div className="mt-10 border-t border-stone-200 pt-8">
-              <h2 className="text-xl font-semibold text-stone-950">Items</h2>
-              {!store.items || store.items.length === 0 ? (
-                <p className="mt-4 text-sm text-stone-600">No items listed yet.</p>
-              ) : (
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  {store.items.map((item) => (
-                    <article
-                      className="rounded-lg border border-stone-200 bg-stone-50/50 p-4 shadow-sm"
-                      key={item.id}
-                    >
-                      <div className="relative h-36 overflow-hidden rounded-md bg-stone-100">
+          <section className="mt-6">
+            <div className="mb-4">
+              <h2 className="text-sm font-semibold text-foreground">Menu</h2>
+            </div>
+
+            {!store.items || store.items.length === 0 ? (
+              <EmptyState
+                description="Nothing listed yet."
+                icon={PackageOpen}
+                title="No items listed yet"
+              />
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {store.items.map((item) => {
+                  const quantity = quantities[item.id] ?? 1;
+
+                  return (
+                    <article className={itemCardClass} key={item.id}>
+                      <div className="relative h-44 bg-surface-raised">
                         {item.imageUrl ? (
                           <Image
                             alt={item.name}
                             className="object-cover"
                             fill
-                            src={`${API_ORIGIN}${item.imageUrl}`}
+                            src={buildAssetUrl(item.imageUrl)}
                           />
-                        ) : null}
-                      </div>
-                      <div className="mt-4 flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="font-medium text-stone-950">{item.name}</h3>
-                          <p className="mt-1 text-sm text-stone-600">{item.category}</p>
-                        </div>
-                        <span className="text-sm font-semibold text-stone-950">
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-accent">
+                            <ShoppingCart className="h-10 w-10" aria-hidden="true" />
+                          </div>
+                        )}
+                        <span className="absolute right-3 top-3 rounded-full border border-border bg-canvas/80 px-3 py-1 text-xs font-medium text-foreground">
                           Rs. {item.price}
                         </span>
                       </div>
-                      {item.description ? (
-                        <p className="mt-3 text-sm text-stone-600">{item.description}</p>
-                      ) : (
-                        <p className="mt-3 text-sm text-stone-500">
-                          Details will be added by the store owner soon.
-                        </p>
-                      )}
-                      <p className="mt-3 text-xs font-medium uppercase text-stone-500">
-                        Stock: {item.stock}
-                      </p>
-                      <div className="mt-4 flex items-center gap-3">
-                        <input
-                          className="h-10 w-20 rounded-md border border-stone-300 bg-white px-3 text-sm outline-none focus:border-emerald-700"
-                          disabled={item.stock === 0}
-                          min={1}
-                          max={item.stock}
-                          onChange={(event) =>
-                            setQuantities((current) => ({
-                              ...current,
-                              [item.id]: Math.min(
-                                item.stock,
-                                Math.max(1, Number(event.target.value) || 1),
-                              ),
-                            }))
-                          }
-                          type="number"
-                          value={quantities[item.id] ?? 1}
-                        />
-                        <button
-                          className="h-10 rounded-md bg-emerald-700 px-4 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-stone-300"
-                          disabled={item.stock === 0 || activeItemId === item.id}
-                          onClick={() => void handleAddToCart(item.id)}
-                          type="button"
-                        >
-                          {item.stock === 0
-                            ? 'Out of stock'
-                            : activeItemId === item.id
-                              ? 'Adding...'
-                              : 'Add to cart'}
-                        </button>
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h3 className="truncate text-base font-semibold text-foreground">
+                              {item.name}
+                            </h3>
+                            <p className="mt-1 text-sm text-accent">{item.category}</p>
+                          </div>
+                          <span className="rounded-full border border-border bg-accent-muted px-2.5 py-1 text-xs font-medium text-accent">
+                            {item.stock} left
+                          </span>
+                        </div>
+                        {item.description ? (
+                          <p className="mt-3 line-clamp-2 text-sm leading-6 text-foreground-secondary">
+                            {item.description}
+                          </p>
+                        ) : null}
+                        <div className="mt-4 flex items-center gap-3">
+                          <div className="flex h-10 items-center rounded-lg border border-border bg-canvas">
+                            <button
+                              className="flex h-10 w-9 items-center justify-center text-foreground-secondary disabled:cursor-not-allowed disabled:text-foreground-faint"
+                              disabled={quantity <= 1 || item.stock === 0}
+                              onClick={() => setQuantity(item.id, item.stock, quantity - 1)}
+                              type="button"
+                            >
+                              <Minus className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                            <span className="w-8 text-center text-sm font-medium text-foreground">
+                              {quantity}
+                            </span>
+                            <button
+                              className="flex h-11 w-10 items-center justify-center text-foreground-secondary disabled:cursor-not-allowed disabled:text-foreground-faint"
+                              disabled={quantity >= item.stock || item.stock === 0}
+                              onClick={() => setQuantity(item.id, item.stock, quantity + 1)}
+                              type="button"
+                            >
+                              <Plus className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                          </div>
+                          <button
+                            className={`${primaryButtonClass} flex-1 px-4`}
+                            disabled={item.stock === 0 || activeItemId === item.id}
+                            onClick={() => void handleAddToCart(item.id)}
+                            type="button"
+                          >
+                            {item.stock === 0 ? (
+                              'Sold out'
+                            ) : activeItemId === item.id ? (
+                              <>
+                                <LoadingSpinner />
+                                Adding
+                              </>
+                            ) : (
+                              'Add'
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </article>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
-      </section>
-    </main>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </>
+      ) : (
+        <EmptyState
+          description="Store not found or unavailable."
+          icon={StoreIcon}
+          title="Store unavailable"
+        />
+      )}
+    </PageContainer>
   );
 }

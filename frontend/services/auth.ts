@@ -1,4 +1,6 @@
-import { ApiError, API_BASE_URL, authHeaders, parseApiResponse } from './api';
+import { API_ROUTES } from '@/lib/api-routes';
+import { buildApiUrl } from '@/lib/api-url';
+import { ApiError, apiFetch, authHeaders, parseApiResponse } from './api';
 import { getAuthToken } from './session';
 export { clearAuthToken, getAuthToken, saveAuthToken } from './session';
 
@@ -23,8 +25,15 @@ type AuthResponse = {
   };
 };
 
-const requestAuth = async (path: string, payload: RegisterPayload | LoginPayload) => {
-  const response = await fetch(`${API_BASE_URL}/auth/${path}`, {
+const authRouteByPath: Record<string, string> = {
+  register: API_ROUTES.auth.register,
+  login: API_ROUTES.auth.login,
+};
+
+const requestAuth = async (path: 'register' | 'login', payload: RegisterPayload | LoginPayload) => {
+  const route = authRouteByPath[path];
+  const url = buildApiUrl(route);
+  const response = await apiFetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -32,7 +41,10 @@ const requestAuth = async (path: string, payload: RegisterPayload | LoginPayload
     body: JSON.stringify(payload),
   });
 
-  return parseApiResponse<AuthResponse>(response, 'Authentication request failed');
+  return parseApiResponse<AuthResponse>(response, 'Authentication request failed', {
+    url,
+    method: 'POST',
+  });
 };
 
 export const registerUser = (payload: RegisterPayload) => requestAuth('register', payload);
@@ -44,11 +56,15 @@ export const getCurrentUser = async () => {
     throw new ApiError('Authentication is required', 401);
   }
 
-  const response = await fetch(`${API_BASE_URL}/auth/me`, {
+  const url = buildApiUrl(API_ROUTES.auth.me);
+  const response = await apiFetch(url, {
     headers: authHeaders(),
   });
 
-  return parseApiResponse(response, 'Unable to load current user') as Promise<{
+  return parseApiResponse(response, 'Unable to load current user', {
+    url,
+    method: 'GET',
+  }) as Promise<{
     user: {
       id: string;
       name: string;

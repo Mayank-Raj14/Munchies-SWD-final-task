@@ -31,8 +31,14 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
 
     if (error.code === 'P2003') {
       res.status(409).json({
-        message:
-          'This record is linked to existing bookings or carts and cannot be removed yet',
+        message: 'This record is linked to existing bookings or carts and cannot be removed yet',
+      });
+      return;
+    }
+
+    if (error.code === 'P2034') {
+      res.status(409).json({
+        message: 'Request conflicted with another update. Please retry.',
       });
       return;
     }

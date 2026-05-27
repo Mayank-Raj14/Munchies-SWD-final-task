@@ -19,9 +19,37 @@ Munchies is a hostel marketplace for student-run food stores. Students can brows
 - Public marketplace and store detail pages
 - Per-store cart grouping
 - Checkout to bookings with stock-safe inventory updates
+- Item-targeted coupon support in booking and cart flows
 - Order status management and cancellation review
 - Admin approval and governance flows
+- Email notifications and preference categories (bookings, promotions, new stores)
+- Store-owner and user analytics dashboards
+- Cache layer for high-read endpoints with invalidation hooks
+- Background automation for order expiry and campaign activation/deactivation
 - Prisma-backed persistence with migration history
+
+## SWD Round 3 Coverage
+
+- Phase 1:
+- Authentication and RBAC for `USER`, `STORE_OWNER`, `ADMIN`
+- Store ownership request + admin approval/rejection
+- Public home/store listing and cart-first booking flow
+- Inventory CRUD with image upload and stock tracking
+- Phase 2:
+- Cancellation request and store-owner review workflow
+- Nodemailer notifications for cancellation/governance events
+- 24-hour uncollected order expiry handling with warning assignment
+- Auto-block on reaching 3 warnings
+- Admin global/store-specific block and unblock controls
+- Phase 3:
+- Coupon campaign system with unique code, discount type, schedule window, min order, global/per-user usage limits
+- Coupon application at checkout with item-targeted campaign support
+- User-managed email subscription preferences: booking, promotion, new-store categories
+- Phase 4:
+- Store-owner analytics: revenue metrics, booking stats, stock visibility, item performance
+- User analytics: spending, booking count, favorite store/item, monthly spending breakdown
+- Cache integration on high-read data paths with explicit invalidation after mutating operations
+- Background jobs/utilities for campaign schedule activation/deactivation and order expiry governance
 
 ## Project Structure
 
@@ -44,6 +72,10 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5432/munchies?schema=publ
 FRONTEND_ORIGIN="http://localhost:3000"
 JWT_SECRET="local-development-jwt-secret-min-32-chars"
 JWT_EXPIRES_IN="7d"
+EMAIL_USER="your_gmail_address@gmail.com"
+EMAIL_PASS="your_gmail_app_password"
+EMAIL_FROM="Munchies <your_gmail_address@gmail.com>"
+ADMIN_EMAIL="mayankraj300u@gmail.com"
 ```
 
 Optional frontend override in `frontend/.env.local`:
@@ -62,6 +94,12 @@ Install dependencies:
 npm install
 ```
 
+Start infrastructure:
+
+```bash
+docker compose up -d
+```
+
 Prepare Prisma:
 
 ```bash
@@ -69,10 +107,23 @@ npm run prisma:generate --workspace backend
 npm run prisma:migrate:deploy --workspace backend
 ```
 
-Run the frontend and backend:
+If Prisma client generation fails with a Windows file-lock error, stop local Node dev processes and retry:
 
 ```bash
-npm run dev
+taskkill /F /IM node.exe
+npm run prisma:generate --workspace backend
+```
+
+Start backend:
+
+```bash
+npm run dev --workspace backend
+```
+
+Start frontend (new terminal):
+
+```bash
+npm run dev --workspace frontend
 ```
 
 The default URLs are:
@@ -102,6 +153,27 @@ npm run prisma:generate --workspace backend
 npm run prisma:migrate --workspace backend
 npm run prisma:migrate:deploy --workspace backend
 npm run prisma:studio --workspace backend
+npm run verify:coupon --workspace backend
+npm run verify:analytics --workspace backend
+```
+
+## Verification Utilities
+
+- Coupon concurrency verifier: validates concurrent coupon redemption behavior.
+- Analytics edge-case verifier: checks analytics aggregation behavior on sparse/edge datasets.
+
+Run from workspace root:
+
+```bash
+npm run verify:coupon --workspace backend
+npm run verify:analytics --workspace backend
+```
+
+Run directly from `backend/`:
+
+```bash
+npm run verify:coupon
+npm run verify:analytics
 ```
 
 ## Prisma Workflow
@@ -130,22 +202,13 @@ npm run prisma:studio --workspace backend
 After the database is migrated:
 
 1. Register a normal user from the app.
-2. Register an admin user, then promote it in PostgreSQL:
-
-```sql
-UPDATE "User" SET role = 'ADMIN' WHERE email = 'admin@munchies.local';
-```
-
-3. Create at least one hostel:
-
-```sql
-INSERT INTO "Hostel" (id, name, "createdAt", "updatedAt")
-VALUES (gen_random_uuid(), 'North Hostel', NOW(), NOW());
-```
-
+2. Register/login with `mayankraj300u@gmail.com` (configured in `ADMIN_EMAIL`) to access admin features. The backend auto-promotes this account to `ADMIN`.
+3. The 12 default hostels are auto-seeded on backend startup.
 4. Submit a store ownership request as a user.
 5. Approve it as an admin.
 6. Add inventory as the store owner and place orders as a customer.
+
+No manual SQL/database edits are required for first run.
 
 ## API Overview
 

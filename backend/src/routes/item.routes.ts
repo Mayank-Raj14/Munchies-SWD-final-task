@@ -15,24 +15,38 @@ import { asyncHandler } from '../utils/async-handler.js';
 import {
   createItemSchema,
   itemParamSchema,
-  storeItemParamSchema,
   updateItemSchema,
 } from '../validators/item.validator.js';
 
 export const itemRouter = Router({ mergeParams: true });
 
-itemRouter.use(authenticate, requireRole(Role.STORE_OWNER, Role.ADMIN));
-itemRouter.get('/', validateRequest(storeItemParamSchema), asyncHandler(getItemsForStore));
+itemRouter.get(
+  '/',
+  asyncHandler(getItemsForStore),
+);
+
 itemRouter.post(
   '/',
+  authenticate,
+  requireRole(Role.STORE_OWNER, Role.ADMIN),
   uploadItemImage.single('image'),
   validateRequest(createItemSchema),
   asyncHandler(createItemForStore),
 );
+
 itemRouter.patch(
   '/:itemId',
+  authenticate,
+  requireRole(Role.STORE_OWNER, Role.ADMIN),
   uploadItemImage.single('image'),
   validateRequest(updateItemSchema),
   asyncHandler(updateItemForStore),
 );
-itemRouter.delete('/:itemId', validateRequest(itemParamSchema), asyncHandler(deleteItemForStore));
+
+itemRouter.delete(
+  '/:itemId',
+  authenticate,
+  requireRole(Role.STORE_OWNER, Role.ADMIN),
+  validateRequest(itemParamSchema),
+  asyncHandler(deleteItemForStore),
+);

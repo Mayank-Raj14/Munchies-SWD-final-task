@@ -25,6 +25,16 @@ type StoreInput = {
 type UpdateStoreInput = Partial<StoreInput>;
 
 const storeInclude = {
+  // Explicitly select Store fields so we never query stale/removed columns
+  // (e.g. `Store.isActive`), even if an old Prisma client is in use at runtime.
+  id: true,
+  name: true,
+  hostelId: true,
+  roomNumber: true,
+  email: true,
+  ownerId: true,
+  createdAt: true,
+  updatedAt: true,
   hostel: {
     select: {
       id: true,
@@ -59,6 +69,7 @@ const storeInclude = {
 const storeDetailInclude = {
   ...storeInclude,
   items: {
+    select: storeInclude.items.select,
     where: { isAvailable: true },
     orderBy: { createdAt: 'desc' as const },
   },
@@ -73,7 +84,7 @@ export const listStores = async ({ page, limit, search, hostelId }: ListStoresIn
     const [stores, total] = await prisma.$transaction([
       prisma.store.findMany({
         where,
-        include: storeInclude,
+        select: storeInclude,
         orderBy: { createdAt: 'desc' },
         skip,
         take,
@@ -92,7 +103,7 @@ export const getStoreById = async (storeId: string) => {
   const store = await getCached(cacheKeys.store(storeId), 30_000, () =>
     prisma.store.findUnique({
       where: { id: storeId },
-      include: storeDetailInclude,
+      select: storeDetailInclude,
     }),
   );
 
@@ -109,7 +120,7 @@ export const listStoresByOwner = async (ownerId: string) => {
   return getCached(cacheKeys.ownerStores(ownerId), 15_000, () =>
     prisma.store.findMany({
       where: { ownerId },
-      include: storeInclude,
+      select: storeInclude,
       orderBy: { createdAt: 'desc' },
     }),
   );
@@ -117,6 +128,16 @@ export const listStoresByOwner = async (ownerId: string) => {
 
 export const createStore = async (ownerId: string, input: StoreInput) => {
   await assertUserNotGloballyBlocked(ownerId, 'create stores');
+  const owner = await prisma.user.findUnique({
+    where: { id: ownerId },
+    select: { role: true },
+  });
+  if (!owner) {
+    throw new AppError('User not found', 404);
+  }
+  if (owner.role !== Role.ADMIN) {
+    throw new AppError('New stores require admin approval before activation', 403);
+  }
 
   const hostel = await prisma.hostel.findUnique({
     where: { id: input.hostelId },
@@ -150,7 +171,7 @@ export const createStore = async (ownerId: string, input: StoreInput) => {
       email: input.email ?? null,
       ownerId,
     },
-    include: storeInclude,
+    select: storeInclude,
   });
 
   invalidateStoreCaches(ownerId, store.id);
@@ -210,7 +231,7 @@ export const updateStore = async (
   const updatedStore = await prisma.store.update({
     where: { id: storeId },
     data: input,
-    include: storeInclude,
+    select: storeInclude,
   });
 
   invalidateStoreCaches(updatedStore.ownerId, storeId);

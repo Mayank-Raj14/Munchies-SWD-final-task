@@ -9,7 +9,6 @@ import {
   Minus,
   PackageOpen,
   Plus,
-  ShoppingCart,
   Store as StoreIcon,
 } from 'lucide-react';
 
@@ -24,6 +23,7 @@ import {
   primaryButtonClass,
   secondaryButtonClass,
 } from '@/components/marketplace-ui';
+import { BrandMark, MediaFallback } from '@/components/brand-assets';
 import { useSyncedRefresh } from '@/lib/sync-events';
 import { ApiError, buildAssetUrl } from '@/services/api';
 import { addToCart } from '@/services/carts';
@@ -133,7 +133,7 @@ export default function StorePage({ params }: StorePageProps) {
         </MarketSurface>
       ) : store ? (
         <>
-          <MarketSurface className="overflow-hidden">
+          <MarketSurface className="page-fade-in overflow-hidden">
             <div className="grid lg:grid-cols-[minmax(0,1fr)_240px]">
               <div className="px-5 py-5 sm:px-6">
                 <span className={badgeClass}>{store.hostel.name}</span>
@@ -141,6 +141,9 @@ export default function StorePage({ params }: StorePageProps) {
                   {store.name}
                 </h1>
                 <p className="mt-1 text-sm text-foreground-muted">Room {store.roomNumber}</p>
+                <div className="mt-5">
+                  <BrandMark compact />
+                </div>
               </div>
               <div className="border-t border-border bg-surface-raised/80 p-4 lg:border-l lg:border-t-0">
                 <div className="flex h-full flex-col justify-between gap-4 rounded-xl border border-border-subtle bg-surface p-4">
@@ -195,9 +198,7 @@ export default function StorePage({ params }: StorePageProps) {
                             src={buildAssetUrl(item.imageUrl)}
                           />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-accent">
-                            <ShoppingCart className="h-10 w-10" aria-hidden="true" />
-                          </div>
+                          <MediaFallback subtitle={item.category} title={item.name} />
                         )}
                         <span className="absolute right-3 top-3 rounded-full border border-border bg-canvas/80 px-3 py-1 text-xs font-medium text-foreground">
                           Rs. {item.price}

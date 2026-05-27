@@ -15,6 +15,7 @@ export type Campaign = {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  targetedItems?: { itemId: string }[];
 };
 
 export type CouponPreview = {

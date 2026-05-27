@@ -69,7 +69,7 @@ model User {
   preferences               NotificationPreference?
 
   // Marketplace links
-  ownedStore                Store?                         @relation("StoreOwner")
+  ownedStores               Store[]                        @relation("StoreOwner")
   storeRequests             StoreOwnershipRequest[]        @relation("StoreRequestsForUser")
   storeRequestsReviewed     StoreOwnershipRequest[]        @relation("StoreRequestsReviewedByUser")
   carts                     Cart[]                         @relation("UserCarts")
@@ -120,8 +120,7 @@ model Store {
   hostelId    String
   roomNumber  String
   email       String?
-  ownerId     String   @unique
-  isActive    Boolean  @default(true)
+  ownerId     String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -143,7 +142,7 @@ model Store {
 
 model StoreOwnershipRequest {
   id          String                      @id @default(uuid())
-  userId      String                      @unique
+  userId      String
   storeName   String
   hostelId    String
   roomNumber  String
@@ -176,17 +175,16 @@ model Item {
   imageUrl    String?
   stock       Int      @default(0)
   isAvailable Boolean  @default(true)
-  isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  store       Store    @relation("StoreItems", fields: [storeId], references: [id], onDelete: Cascade)
-  
-  cartItems   CartItem[]     @relation("CartItemProduct")
+  store        Store         @relation("StoreItems", fields: [storeId], references: [id], onDelete: Cascade)
+
+  cartItems    CartItem[]    @relation("CartItemProduct")
   bookingItems BookingItem[] @relation("BookingItemProduct")
+  campaignTargets CampaignItem[]
 
   @@index([storeId])
-  @@index([isActive])
 }
 
 // -----------------------------------------------------------------------------$
@@ -303,10 +301,24 @@ model Campaign {
   
   bookings         Booking[]    @relation("BookingCampaign")
   usages           CouponUsage[] @relation("CouponToUsages")
+  targetedItems    CampaignItem[] @relation("CampaignTargetItems")
 
   @@index([storeId])
   @@index([code, isActive])
   @@index([startsAt, endsAt])
+}
+
+model CampaignItem {
+  id         String   @id @default(uuid())
+  campaignId String
+  itemId     String
+  createdAt  DateTime @default(now())
+
+  campaign   Campaign @relation("CampaignTargetItems", fields: [campaignId], references: [id], onDelete: Cascade)
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, itemId])
+  @@index([itemId])
 }
 
 model CouponUsage {

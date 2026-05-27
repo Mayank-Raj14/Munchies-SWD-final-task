@@ -12,10 +12,14 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:push": "prisma db push",
+    "prisma:clean": "node scripts/prisma-generate-safe.cjs --clean-only",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:studio": "prisma studio --port 5555"
+    "prisma:studio": "prisma studio --port 5555",
+    "db:clear": "tsx scripts/clear-db.ts",
+    "verify:coupon": "tsx scripts/verify-coupon-concurrency.ts",
+    "verify:analytics": "tsx scripts/verify-analytics-edge-cases.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",
@@ -29,6 +33,8 @@
     "morgan": "^1.10.0",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.8",
+    "swagger-ui-express": "^5.0.1",
+    "yamljs": "^0.3.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -39,6 +45,8 @@
     "@types/morgan": "^1.9.9",
     "@types/node": "^22.0.0",
     "@types/nodemailer": "^8.0.0",
+    "@types/swagger-ui-express": "^4.1.8",
+    "@types/yamljs": "^0.2.34",
     "@typescript-eslint/eslint-plugin": "^8.8.0",
     "@typescript-eslint/parser": "^8.8.0",
     "eslint": "^8.57.0",

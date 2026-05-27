@@ -1,6 +1,8 @@
 import Link from 'next/link';
+import { memo } from 'react';
 import { ChevronRight, Clock3, MapPin, PackageCheck, Star, Store } from 'lucide-react';
 
+import { MediaFallback } from '@/components/brand-assets';
 import type { Store as StoreType } from '@/types/store';
 
 type StoreCardProps = {
@@ -18,7 +20,7 @@ function getHeaderTone(name: string) {
   return headerTones[name.charCodeAt(0) % headerTones.length];
 }
 
-export function StoreCard({ store, variant = 'list' }: StoreCardProps) {
+function StoreCardComponent({ store, variant = 'list' }: StoreCardProps) {
   const initial = store.name.trim().charAt(0).toUpperCase() || 'M';
   const headerTone = getHeaderTone(store.name);
   const itemCount = store._count?.items ?? store.items?.length ?? 0;
@@ -33,20 +35,33 @@ export function StoreCard({ store, variant = 'list' }: StoreCardProps) {
     return (
       <Link
         href={`/stores/${store.id}`}
-        className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-card transition-all duration-ui hover:border-border-strong hover:shadow-card-hover"
+        className="group elevated-hover page-fade-in flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-card transition-all duration-ui hover:border-border-strong hover:shadow-card-hover"
       >
-        <div className={`relative h-28 bg-gradient-to-br ${headerTone}`}>
+        <div className={`relative h-32 bg-gradient-to-br ${headerTone}`}>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.14),transparent_42%)]" />
           <span className="absolute left-3 top-3 rounded-md bg-canvas/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground-secondary backdrop-blur-sm">
             {store.hostel.name}
           </span>
-          <div className="absolute bottom-3 left-3 flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-surface text-base font-bold text-accent shadow-subtle">
-            {initial}
+          <div className="absolute inset-x-3 bottom-3">
+            <MediaFallback
+              className="h-16 rounded-2xl border border-border-subtle bg-canvas/30 backdrop-blur-sm"
+              icon="store"
+              subtitle={`Room ${store.roomNumber}`}
+              title={store.name}
+            />
           </div>
         </div>
 
         <div className="flex flex-1 flex-col p-3.5">
-          <h2 className="truncate text-base font-semibold text-foreground">{store.name}</h2>
-          <p className="mt-0.5 text-xs text-foreground-muted">Room {store.roomNumber}</p>
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-raised text-sm font-bold text-accent shadow-subtle">
+              {initial}
+            </div>
+            <div className="min-w-0">
+              <h2 className="truncate text-base font-semibold text-foreground">{store.name}</h2>
+              <p className="mt-0.5 text-xs text-foreground-muted">Room {store.roomNumber}</p>
+            </div>
+          </div>
           <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] text-foreground-muted">
             <span className="inline-flex items-center gap-1 rounded-md bg-surface-raised px-2 py-0.5">
               <Star className="h-3 w-3 text-amber-400" aria-hidden="true" />
@@ -66,7 +81,7 @@ export function StoreCard({ store, variant = 'list' }: StoreCardProps) {
   return (
     <Link
       href={`/stores/${store.id}`}
-      className="group flex gap-3 rounded-2xl border border-border bg-surface p-3 shadow-card transition-all duration-ui hover:border-border-strong hover:shadow-card-hover sm:gap-4 sm:p-3.5"
+      className="group elevated-hover page-fade-in flex gap-3 rounded-2xl border border-border bg-surface p-3 shadow-card transition-all duration-ui hover:border-border-strong hover:shadow-card-hover sm:gap-4 sm:p-3.5"
     >
       <div
         className={`relative flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-lg font-bold text-accent sm:h-20 sm:w-20 sm:text-xl ${headerTone}`}
@@ -111,3 +126,5 @@ export function StoreCard({ store, variant = 'list' }: StoreCardProps) {
     </Link>
   );
 }
+
+export const StoreCard = memo(StoreCardComponent);

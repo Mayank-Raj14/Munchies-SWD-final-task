@@ -5,7 +5,7 @@ import { AppError } from '../utils/app-error.js';
 import { buildPaginationMeta, getPagination } from '../utils/pagination.js';
 import { invalidateCache } from '../utils/cache.js';
 import { invalidateAnalyticsCaches } from './analytics.service.js';
-import { claimCouponUsage, validateCouponForStore } from './campaign.service.js';
+import { calculateDiscount, claimCouponUsage, validateCouponForStore } from './campaign.service.js';
 import { assertUserCanUseStore } from './governance.service.js';
 import { buildEmailHtml, getStoreSender, sendUserEmail } from './email.service.js';
 
@@ -75,7 +75,6 @@ type BookingListInput = {
 const cancellableStatuses = [
   BookingStatus.PENDING,
   BookingStatus.CONFIRMED,
-  BookingStatus.READY,
 ] as const;
 
 const canRequestCancellation = (status: BookingStatus) => {
@@ -98,7 +97,6 @@ const assertStatusTransition = (currentStatus: BookingStatus, nextStatus: Bookin
     ],
     [BookingStatus.READY]: [
       BookingStatus.COMPLETED,
-      BookingStatus.CANCEL_REQUESTED,
       BookingStatus.CANCELLED,
       BookingStatus.EXPIRED,
     ],
@@ -271,14 +269,19 @@ export const checkoutCart = async (userId: string, cartId: string, couponCode?: 
       const coupon = couponCode
         ? await validateCouponForStore(userId, cart.storeId, couponCode, subtotalAmount, tx)
         : null;
-      const discountAmount = coupon
-        ? coupon.type === 'PERCENTAGE'
-          ? Prisma.Decimal.min(
-              subtotalAmount.mul(new Prisma.Decimal(coupon.value)).div(100),
-              subtotalAmount,
-            )
-          : Prisma.Decimal.min(new Prisma.Decimal(coupon.value), subtotalAmount)
-        : new Prisma.Decimal(0);
+      const targetItemIds = new Set(coupon?.targetedItems.map((entry) => entry.itemId) ?? []);
+      const eligibleSubtotal =
+        !coupon || targetItemIds.size === 0
+          ? subtotalAmount
+          : cart.items.reduce((total, cartItem) => {
+              return targetItemIds.has(cartItem.itemId)
+                ? total.plus(new Prisma.Decimal(cartItem.item.price).mul(cartItem.quantity))
+                : total;
+            }, new Prisma.Decimal(0));
+      if (coupon && targetItemIds.size > 0 && eligibleSubtotal.lessThanOrEqualTo(0)) {
+        throw new AppError('Coupon is not valid for items in this cart', 400);
+      }
+      const discountAmount = coupon ? calculateDiscount(coupon, eligibleSubtotal) : new Prisma.Decimal(0);
       const totalAmount = Prisma.Decimal.max(
         subtotalAmount.minus(discountAmount),
         new Prisma.Decimal(0),

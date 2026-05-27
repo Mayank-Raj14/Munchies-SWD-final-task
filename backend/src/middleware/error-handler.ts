@@ -4,61 +4,119 @@ import multer from 'multer';
 
 import { AppError } from '../utils/app-error.js';
 
-export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
+type ApiErrorPayload = {
+  success: false;
+  error: {
+    code: string;
+    message: string;
+    details?: unknown;
+  };
+};
+
+const sendError = (
+  res: Parameters<ErrorRequestHandler>[2],
+  statusCode: number,
+  code: string,
+  message: string,
+  details?: unknown,
+) => {
+  const payload: ApiErrorPayload = {
+    success: false,
+    error: {
+      code,
+      message,
+      ...(details ? { details } : {}),
+    },
+  };
+
+  res.status(statusCode).json(payload);
+};
+
+export const errorHandler: ErrorRequestHandler = (
+  error,
+  _req,
+  res,
+  _next,
+) => {
   void _next;
 
   if (error instanceof AppError) {
-    res.status(error.statusCode).json({
-      message: error.message,
-    });
+    sendError(
+      res,
+      error.statusCode,
+      'APP_ERROR',
+      error.message,
+      error.details,
+    );
     return;
   }
 
   if (error instanceof multer.MulterError) {
-    res.status(400).json({
-      message: error.message,
-    });
+    sendError(res, 400, 'UPLOAD_ERROR', error.message);
     return;
   }
 
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    console.error(error);
+
     if (error.code === 'P2002') {
-      res.status(409).json({
-        message: 'A record with these details already exists',
-      });
+      sendError(
+        res,
+        409,
+        'CONFLICT',
+        'A record with these details already exists',
+      );
       return;
     }
 
     if (error.code === 'P2003') {
-      res.status(409).json({
-        message: 'This record is linked to existing bookings or carts and cannot be removed yet',
-      });
+      sendError(
+        res,
+        409,
+        'RELATION_CONFLICT',
+        'This record is linked to existing bookings or carts and cannot be removed yet',
+      );
       return;
     }
 
     if (error.code === 'P2034') {
-      res.status(409).json({
-        message: 'Request conflicted with another update. Please retry.',
-      });
+      sendError(
+        res,
+        409,
+        'WRITE_CONFLICT',
+        'Request conflicted with another update. Please retry.',
+      );
       return;
     }
 
-    res.status(400).json({
-      message: 'Database request failed',
-    });
+    sendError(
+      res,
+      400,
+      'DATABASE_ERROR',
+      error.message,
+    );
     return;
   }
 
-  if (error instanceof Error && error.message === 'Only image uploads are allowed') {
-    res.status(400).json({
-      message: error.message,
-    });
+  if (
+    error instanceof Error &&
+    error.message === 'Only image uploads are allowed'
+  ) {
+    sendError(
+      res,
+      400,
+      'VALIDATION_ERROR',
+      error.message,
+    );
     return;
   }
 
   console.error(error);
 
-  res.status(500).json({
-    message: 'Internal server error',
-  });
+  sendError(
+    res,
+    500,
+    'INTERNAL_SERVER_ERROR',
+    'Internal server error',
+  );
 };

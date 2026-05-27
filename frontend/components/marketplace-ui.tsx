@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { ChevronDown, Loader2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
+import { BrandMark } from '@/components/brand-assets';
+
 type PageContainerProps = {
   children: ReactNode;
   className?: string;
@@ -17,9 +19,9 @@ const widthClass = {
 export function PageContainer({ children, className = '', size = 'default' }: PageContainerProps) {
   return (
     <main
-      className={`min-h-screen px-4 pb-24 pt-4 sm:px-5 sm:pt-5 lg:px-7 lg:pb-8 lg:pt-6 ${className}`}
+      className={`min-h-screen w-full min-w-0 overflow-x-clip px-4 pb-24 pt-4 sm:px-5 sm:pt-5 lg:px-7 lg:pb-8 lg:pt-6 ${className}`}
     >
-      <div className={`mx-auto w-full ${widthClass[size]}`}>{children}</div>
+      <div className={`mx-auto w-full min-w-0 ${widthClass[size]}`}>{children}</div>
     </main>
   );
 }
@@ -92,14 +94,44 @@ export function Notice({
 export function CardSkeleton({ className = '' }: { className?: string }) {
   return (
     <div className={`overflow-hidden rounded-2xl border border-border bg-surface ${className}`}>
-      <div className="h-24 animate-pulse bg-surface-raised" />
+      <div className="skeleton-block h-24 bg-surface-raised" />
       <div className="space-y-2.5 p-4">
-        <div className="h-3.5 w-2/3 animate-pulse rounded-md bg-surface-raised" />
-        <div className="h-3 w-1/2 animate-pulse rounded-md bg-surface-muted/80" />
+        <div className="skeleton-block h-3.5 w-2/3 rounded-md bg-surface-raised" />
+        <div className="skeleton-block h-3 w-1/2 rounded-md bg-surface-muted/80" />
         <div className="grid grid-cols-2 gap-2 pt-1">
-          <div className="h-8 animate-pulse rounded-lg bg-surface-raised" />
-          <div className="h-8 animate-pulse rounded-lg bg-surface-muted/80" />
+          <div className="skeleton-block h-8 rounded-lg bg-surface-raised" />
+          <div className="skeleton-block h-8 rounded-lg bg-surface-muted/80" />
         </div>
+      </div>
+    </div>
+  );
+}
+
+export function StatCardSkeleton({ className = '' }: { className?: string }) {
+  return (
+    <div className={`rounded-2xl border border-border bg-surface p-5 shadow-card ${className}`}>
+      <div className="skeleton-block h-3 w-24 rounded-md bg-surface-raised" />
+      <div className="skeleton-block mt-4 h-8 w-32 rounded-lg bg-surface-raised" />
+      <div className="skeleton-block mt-3 h-3 w-20 rounded-md bg-surface-muted/80" />
+    </div>
+  );
+}
+
+export function ChartSkeleton({ className = '' }: { className?: string }) {
+  return (
+    <div className={`rounded-2xl border border-border bg-surface p-5 shadow-card ${className}`}>
+      <div className="skeleton-block h-4 w-32 rounded-md bg-surface-raised" />
+      <div className="mt-5 space-y-3">
+        {[70, 48, 82, 58].map((width, index) => (
+          <div className="grid gap-3 sm:grid-cols-[5rem_1fr_5rem] sm:items-center" key={index}>
+            <div className="skeleton-block h-3 rounded-md bg-surface-muted/80" />
+            <div
+              className="skeleton-block h-3 rounded-full bg-surface-raised"
+              style={{ width: `${width}%` }}
+            />
+            <div className="skeleton-block h-3 rounded-md bg-surface-muted/80" />
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -168,21 +200,61 @@ type EmptyStateProps = {
 
 export function EmptyState({ action, description, icon: Icon, title }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-surface/50 px-5 py-10 text-center sm:py-12">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-accent-muted text-accent">
+    <div className="relative flex flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-border bg-surface/70 px-5 py-10 text-center shadow-card sm:py-12">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.08),transparent_55%)]" />
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-accent-muted text-accent shadow-subtle">
         <Icon className="h-4 w-4" aria-hidden="true" />
       </div>
-      <h2 className="mt-3 text-sm font-semibold text-foreground">{title}</h2>
+      <h2 className="relative mt-3 text-sm font-semibold text-foreground">{title}</h2>
       {description ? (
-        <p className="mt-1 max-w-xs text-xs leading-relaxed text-foreground-muted">{description}</p>
+        <p className="relative mt-1 max-w-xs text-xs leading-relaxed text-foreground-muted">
+          {description}
+        </p>
       ) : null}
-      {action ? <div className="mt-4">{action}</div> : null}
+      {action ? <div className="relative mt-4">{action}</div> : null}
     </div>
   );
 }
 
 export const authShellClass =
-  'grid w-full max-w-5xl overflow-hidden rounded-2xl border border-border bg-surface shadow-card lg:grid-cols-[1fr_400px]';
+  'grid w-full max-w-6xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#101114]/95 shadow-[0_32px_120px_-48px_rgba(0,0,0,0.85)] backdrop-blur-xl lg:grid-cols-[minmax(0,1.1fr)_430px]';
 
 export const authHeroClass =
-  'hidden border-r border-border bg-surface-raised p-8 text-foreground lg:flex lg:flex-col lg:justify-between';
+  'relative hidden overflow-hidden border-r border-white/10 bg-[linear-gradient(160deg,#1a1d24_0%,#111318_45%,#0a0c10_100%)] p-10 text-foreground lg:flex lg:flex-col lg:justify-between';
+
+export function AuthHero({
+  eyebrow,
+  points,
+  subtitle,
+  title,
+}: {
+  eyebrow: string;
+  points: string[];
+  subtitle: string;
+  title: string;
+}) {
+  return (
+    <div className={authHeroClass}>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.32),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(251,191,36,0.12),transparent_35%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-grid-soft opacity-20" />
+      <BrandMark className="relative" />
+      <div className="relative max-w-md">
+        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-orange-300/80">
+          {eyebrow}
+        </p>
+        <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white">{title}</h1>
+        <p className="mt-4 text-sm leading-7 text-slate-300">{subtitle}</p>
+      </div>
+      <div className="relative grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+        {points.map((point) => (
+          <div
+            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200 backdrop-blur-sm"
+            key={point}
+          >
+            {point}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

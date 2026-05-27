@@ -39,8 +39,14 @@ const ensureStoreAccess = async (storeId: string, user: UserContext) => {
   return store;
 };
 
-export const listStoreItems = async (storeId: string, user: UserContext) => {
-  await ensureStoreAccess(storeId, user);
+export const listStoreItems = async (storeId: string) => {
+  const store = await prisma.store.findUnique({
+    where: { id: storeId },
+  });
+
+  if (!store) {
+    return [];
+  }
 
   return prisma.item.findMany({
     where: { storeId },
@@ -48,7 +54,11 @@ export const listStoreItems = async (storeId: string, user: UserContext) => {
   });
 };
 
-export const createStoreItem = async (storeId: string, user: UserContext, input: ItemInput) => {
+export const createStoreItem = async (
+  storeId: string,
+  user: UserContext,
+  input: ItemInput,
+) => {
   const store = await ensureStoreAccess(storeId, user);
 
   if (input.stock < 0) {
@@ -70,6 +80,7 @@ export const createStoreItem = async (storeId: string, user: UserContext, input:
 
   invalidateStoreCaches(store.ownerId, storeId);
   invalidateAnalyticsCaches(storeId);
+
   return item;
 };
 
@@ -83,17 +94,28 @@ export const updateStoreItem = async (
 
   const item = await prisma.item.findFirst({
     where: { id: itemId, storeId },
-    select: { id: true, imageUrl: true, stock: true, isAvailable: true },
+    select: {
+      id: true,
+      imageUrl: true,
+      stock: true,
+      isAvailable: true,
+    },
   });
 
   if (!item) {
     throw new AppError('Item not found', 404);
   }
 
-  const isRemoved = !item.isAvailable && item.stock === 0 && item.imageUrl === null;
+  const isRemoved =
+    !item.isAvailable &&
+    item.stock === 0 &&
+    item.imageUrl === null;
 
   if (isRemoved) {
-    throw new AppError('Item has been removed. Create a new item instead.', 410);
+    throw new AppError(
+      'Item has been removed. Create a new item instead.',
+      410,
+    );
   }
 
   if (input.stock !== undefined && input.stock < 0) {
@@ -104,25 +126,39 @@ export const updateStoreItem = async (
     where: { id: itemId },
     data: {
       ...input,
-      ...(input.stock !== undefined ? { isAvailable: input.stock > 0 } : {}),
+      ...(input.stock !== undefined
+        ? { isAvailable: input.stock > 0 }
+        : {}),
     },
   });
 
-  if (input.imageUrl && item.imageUrl && item.imageUrl !== input.imageUrl) {
+  if (
+    input.imageUrl &&
+    item.imageUrl &&
+    item.imageUrl !== input.imageUrl
+  ) {
     await deleteUploadedFile(item.imageUrl);
   }
 
   invalidateStoreCaches(store.ownerId, storeId);
   invalidateAnalyticsCaches(storeId);
+
   return updatedItem;
 };
 
-export const deleteStoreItem = async (storeId: string, itemId: string, user: UserContext) => {
+export const deleteStoreItem = async (
+  storeId: string,
+  itemId: string,
+  user: UserContext,
+) => {
   const store = await ensureStoreAccess(storeId, user);
 
   const item = await prisma.item.findFirst({
     where: { id: itemId, storeId },
-    select: { id: true, imageUrl: true },
+    select: {
+      id: true,
+      imageUrl: true,
+    },
   });
 
   if (!item) {
@@ -145,6 +181,7 @@ export const deleteStoreItem = async (storeId: string, itemId: string, user: Use
   });
 
   await deleteUploadedFile(item.imageUrl);
+
   invalidateStoreCaches(store.ownerId, storeId);
   invalidateAnalyticsCaches(storeId);
 };

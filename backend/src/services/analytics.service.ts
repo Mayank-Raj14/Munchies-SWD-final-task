@@ -30,7 +30,10 @@ const startOfUtcMonth = (date: Date) => {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 };
 
-const decimalToNumber = (value?: Prisma.Decimal | null) => Number(value ?? 0);
+const decimalToNumber = (value?: Prisma.Decimal | null) => {
+  const numeric = Number(value ?? 0);
+  return Number.isFinite(numeric) ? numeric : 0;
+};
 
 const createdAtRange = (input: AnalyticsDateRange) =>
   input.dateFrom || input.dateTo
@@ -121,7 +124,7 @@ export const getStoreAnalytics = async (
         prisma.item.findMany({
           where: {
             storeId,
-            isActive: true,
+            isAvailable: true,
             stock: { lte: lowStockThreshold },
           },
           select: {
@@ -165,6 +168,18 @@ export const getStoreAnalytics = async (
           }
         : null;
 
+    const bookingStatistics = Object.values(BookingStatus).reduce<Record<string, number>>(
+      (stats, status) => {
+        stats[status] = 0;
+        return stats;
+      },
+      {},
+    );
+    for (const stat of bookingStats) {
+      const count = typeof stat._count === 'object' ? (stat._count.id ?? 0) : 0;
+      bookingStatistics[stat.status] = count;
+    }
+
     return {
       revenue: {
         total: decimalToNumber(totalRevenue._sum.totalAmount),
@@ -173,11 +188,7 @@ export const getStoreAnalytics = async (
       },
       mostSoldItem: toSoldItem(soldItems[0]),
       leastSoldItem: toSoldItem(soldItems.at(-1)),
-      bookingStatistics: bookingStats.reduce<Record<string, number>>((stats, stat) => {
-        const count = typeof stat._count === 'object' ? (stat._count.id ?? 0) : 0;
-        stats[stat.status] = count;
-        return stats;
-      }, {}),
+      bookingStatistics,
       lowStockThreshold,
       lowStockItems,
     };

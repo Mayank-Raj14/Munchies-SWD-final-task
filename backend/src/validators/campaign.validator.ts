@@ -12,6 +12,7 @@ const campaignBodyBase = z.object({
   startsAt: z.coerce.date(),
   endsAt: z.coerce.date(),
   isActive: z.boolean().optional(),
+  itemIds: z.array(z.string().uuid('Invalid item id')).max(200).optional(),
 });
 
 const campaignBody = campaignBodyBase.refine((value) => value.endsAt > value.startsAt, {
@@ -27,7 +28,18 @@ export const updateCampaignSchema = z.object({
   params: z.object({
     campaignId: z.string().uuid('Invalid campaign id'),
   }),
-  body: campaignBodyBase.omit({ storeId: true, code: true }).partial(),
+  body: campaignBodyBase
+    .omit({ storeId: true, code: true })
+    .partial()
+    .superRefine((value, context) => {
+      if (value.startsAt && value.endsAt && value.endsAt <= value.startsAt) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'End time must be after start time',
+          path: ['endsAt'],
+        });
+      }
+    }),
 });
 
 export const campaignParamSchema = z.object({

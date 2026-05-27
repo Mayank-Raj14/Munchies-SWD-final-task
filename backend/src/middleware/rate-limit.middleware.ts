@@ -26,7 +26,12 @@ export const rateLimit = (options: {
     bucket.count += 1;
 
     if (bucket.count > options.max) {
-      res.status(429).json({ message: 'Too many requests. Please wait and try again.' });
+      res.status(429).json({
+        success: false,
+        error: {
+          message: 'Too many requests. Please wait and try again.',
+        },
+      });
       return;
     }
 

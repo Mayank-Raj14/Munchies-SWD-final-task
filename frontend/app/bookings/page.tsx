@@ -38,6 +38,7 @@ export default function BookingHistoryPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const loadBookings = useCallback(
@@ -58,9 +59,8 @@ export default function BookingHistoryPage() {
 
         setError(loadError instanceof Error ? loadError.message : 'Unable to load bookings.');
       } finally {
-        if (!options.silent) {
-          setIsLoading(false);
-        }
+        setHasLoaded(true);
+        setIsLoading(false);
       }
     },
     [router],
@@ -146,10 +146,14 @@ export default function BookingHistoryPage() {
         </div>
       ) : null}
 
-      {isLoading ? (
+      {isLoading && !hasLoaded ? (
         <div className="mt-8 space-y-5">
           {[0, 1, 2].map((item) => (
-            <MarketSurface className="h-44 animate-pulse" key={item} />
+            <MarketSurface className="animate-pulse p-5" key={item}>
+              <div className="h-5 w-40 rounded bg-surface-raised" />
+              <div className="mt-3 h-4 w-56 rounded bg-surface-raised" />
+              <div className="mt-6 h-10 rounded bg-surface-raised" />
+            </MarketSurface>
           ))}
         </div>
       ) : bookings.length === 0 ? (
@@ -216,8 +220,7 @@ export default function BookingHistoryPage() {
                   </p>
                   {!booking.cancellationRequestedAt &&
                   (booking.status === 'PENDING' ||
-                    booking.status === 'CONFIRMED' ||
-                    booking.status === 'READY') ? (
+                    booking.status === 'CONFIRMED') ? (
                     <button
                       className={dangerOutlineButtonClass}
                       disabled={busyId === booking.id}

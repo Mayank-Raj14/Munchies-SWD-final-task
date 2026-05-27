@@ -23,14 +23,26 @@ import { itemRouter } from './item.routes.js';
 
 export const storeRouter = Router();
 
-storeRouter.get('/', validateRequest(storeListQuerySchema), asyncHandler(getStores));
+storeRouter.get(
+  '/',
+  validateRequest(storeListQuerySchema),
+  asyncHandler(getStores),
+);
+
 storeRouter.use('/:storeId/items', itemRouter);
+
 storeRouter.get(
   '/my-stores',
   authenticate,
   asyncHandler(getMyStores),
 );
-storeRouter.get('/:id', validateRequest(storeIdParamSchema), asyncHandler(getStore));
+
+storeRouter.get(
+  '/:id',
+  validateRequest(storeIdParamSchema),
+  asyncHandler(getStore),
+);
+
 storeRouter.post(
   '/',
   authenticate,
@@ -38,6 +50,7 @@ storeRouter.post(
   validateRequest(createStoreSchema),
   asyncHandler(createStoreForOwner),
 );
+
 storeRouter.patch(
   '/:id',
   authenticate,
@@ -45,6 +58,7 @@ storeRouter.patch(
   validateRequest(updateStoreSchema),
   asyncHandler(updateStoreForOwner),
 );
+
 storeRouter.delete(
   '/:id',
   authenticate,

@@ -15,6 +15,7 @@ export type CampaignPayload = {
   startsAt: string;
   endsAt: string;
   isActive?: boolean;
+  itemIds?: string[];
 };
 
 export const getCampaigns = async (storeId: string) => {
@@ -50,6 +51,22 @@ export const deactivateCampaign = async (campaignId: string) => {
   const response = await apiFetch(url, {
     method: 'PATCH',
     headers: authHeaders(),
+  });
+
+  const data = await parseApiResponse<{ campaign: Campaign }>(response, 'Campaign request failed', {
+    url,
+    method: 'PATCH',
+  });
+  notifyDataChanged(['campaigns', 'stores']);
+  return data;
+};
+
+export const updateCampaign = async (campaignId: string, payload: Partial<CampaignPayload>) => {
+  const url = buildApiUrl(API_ROUTES.campaigns.byId(campaignId));
+  const response = await apiFetch(url, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
   });
 
   const data = await parseApiResponse<{ campaign: Campaign }>(response, 'Campaign request failed', {

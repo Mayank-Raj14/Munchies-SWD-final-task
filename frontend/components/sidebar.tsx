@@ -21,6 +21,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { primaryButtonClass, secondaryButtonClass } from '@/components/marketplace-ui';
+import { BrandMark } from '@/components/brand-assets';
 import { ThemeSettings } from '@/components/theme-settings';
 import { useAuth, type AuthUser } from '@/contexts/auth-context';
 
@@ -119,7 +120,7 @@ function NavLink({ item }: { item: SidebarItem }) {
     <Link
       className={`relative flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium transition-all duration-ui ${
         isActive
-          ? 'bg-accent-muted text-accent'
+          ? 'bg-accent-muted text-accent shadow-subtle'
           : 'text-foreground-secondary hover:bg-surface-hover hover:text-foreground'
       }`}
       href={item.href}
@@ -161,13 +162,8 @@ export function Sidebar() {
     <>
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-sidebar flex-col border-r border-border-subtle bg-surface lg:flex">
         <div className="flex h-12 items-center px-4">
-          <Link className="flex min-w-0 items-center gap-2.5" href="/">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent text-xs font-bold text-accent-contrast">
-              M
-            </span>
-            <span className="truncate text-[15px] font-semibold tracking-tight text-foreground">
-              Munchies
-            </span>
+          <Link className="flex min-w-0 items-center" href="/">
+            <BrandMark compact />
           </Link>
         </div>
 
@@ -261,15 +257,17 @@ export function Sidebar() {
         aria-label="Mobile"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border-subtle bg-surface/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur-md lg:hidden"
       >
-        <div className="grid grid-cols-4 gap-0.5 px-1">
+        <div className="mx-auto grid max-w-lg grid-cols-4 gap-1 px-2">
           {mobileItems.map((item) => {
             const Icon = item.icon;
             const isActive = isActiveItem(item, pathname);
 
             return (
               <Link
-                className={`flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium transition-colors duration-ui ${
-                  isActive ? 'text-accent' : 'text-foreground-muted'
+                className={`flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-medium transition-all duration-ui ${
+                  isActive
+                    ? 'bg-accent-muted text-accent shadow-subtle'
+                    : 'text-foreground-muted hover:bg-surface-hover'
                 }`}
                 href={item.href}
                 key={item.href}

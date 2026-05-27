@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { BadgePercent, Megaphone } from 'lucide-react';
+import { BadgePercent, Megaphone, Pencil, X } from 'lucide-react';
 
 import {
   EmptyState,
@@ -19,9 +19,11 @@ import {
 } from '@/components/marketplace-ui';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSyncedRefresh } from '@/lib/sync-events';
-import { createCampaign, deactivateCampaign, getCampaigns } from '@/services/campaigns';
+import { createCampaign, deactivateCampaign, getCampaigns, updateCampaign } from '@/services/campaigns';
+import { getStoreItems } from '@/services/items';
 import { getMyStores } from '@/services/stores';
 import type { Campaign } from '@/types/campaign';
+import type { Item } from '@/types/item';
 import type { Store } from '@/types/store';
 
 const toLocalInputValue = (date: Date) => date.toISOString().slice(0, 16);
@@ -30,16 +32,24 @@ export default function CampaignsPage() {
   const { isLoading: isAuthLoading, isAuthorized } = useRequireAuth(['STORE_OWNER', 'ADMIN']);
   const [stores, setStores] = useState<Store[]>([]);
   const [storeId, setStoreId] = useState('');
+  const [storeItems, setStoreItems] = useState<Item[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
 
   const selectedStore = useMemo(
     () => stores.find((store) => store.id === storeId),
     [storeId, stores],
   );
+
+  const clearFormMode = () => {
+    setEditingCampaignId(null);
+    setSelectedItemIds([]);
+  };
 
   const loadData = useCallback(
     async (options: { silent?: boolean } = {}) => {
@@ -60,10 +70,15 @@ export default function CampaignsPage() {
         setStoreId(nextStoreId);
 
         if (nextStoreId) {
-          const campaignData = await getCampaigns(nextStoreId);
+          const [campaignData, itemData] = await Promise.all([
+            getCampaigns(nextStoreId),
+            getStoreItems(nextStoreId),
+          ]);
           setCampaigns(campaignData.campaigns);
+          setStoreItems(itemData.items);
         } else {
           setCampaigns([]);
+          setStoreItems([]);
         }
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : 'Unable to load campaigns.');
@@ -89,12 +104,25 @@ export default function CampaignsPage() {
       return;
     }
 
-    void getCampaigns(storeId).then((data) => setCampaigns(data.campaigns));
+    void Promise.all([getCampaigns(storeId), getStoreItems(storeId)]).then(([campaignData, itemData]) => {
+      setCampaigns(campaignData.campaigns);
+      setStoreItems(itemData.items);
+    });
+    clearFormMode();
   }, [isAuthLoading, isAuthorized, storeId]);
 
   useSyncedRefresh(['campaigns', 'stores'], () => loadData({ silent: true }), {
     enabled: isAuthorized,
   });
+
+  const handleToggleItem = (itemId: string, checked: boolean) => {
+    setSelectedItemIds((current) => {
+      if (checked) {
+        return current.includes(itemId) ? current : [...current, itemId];
+      }
+      return current.filter((id) => id !== itemId);
+    });
+  };
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -110,7 +138,7 @@ export default function CampaignsPage() {
     const formData = new FormData(event.currentTarget);
 
     try {
-      const data = await createCampaign({
+      const payload = {
         storeId,
         code: String(formData.get('code') || '').trim() || undefined,
         type: String(formData.get('type')) as 'PERCENTAGE' | 'FLAT',
@@ -125,15 +153,33 @@ export default function CampaignsPage() {
         startsAt: new Date(String(formData.get('startsAt'))).toISOString(),
         endsAt: new Date(String(formData.get('endsAt'))).toISOString(),
         isActive: true,
-      });
-      setCampaigns((current) => [data.campaign, ...current]);
-      setMessage(`Campaign ${data.campaign.code} created.`);
+        itemIds: [...new Set(selectedItemIds)],
+      };
+
+      if (editingCampaignId) {
+        const data = await updateCampaign(editingCampaignId, payload);
+        setCampaigns((current) =>
+          current.map((campaign) => (campaign.id === editingCampaignId ? data.campaign : campaign)),
+        );
+        setMessage(`Campaign ${data.campaign.code} updated.`);
+      } else {
+        const data = await createCampaign(payload);
+        setCampaigns((current) => [data.campaign, ...current]);
+        setMessage(`Campaign ${data.campaign.code} created.`);
+      }
+
       event.currentTarget.reset();
+      clearFormMode();
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : 'Campaign creation failed.');
+      setError(createError instanceof Error ? createError.message : 'Campaign save failed.');
     } finally {
       setBusyId(null);
     }
+  };
+
+  const handleEdit = (campaign: Campaign) => {
+    setEditingCampaignId(campaign.id);
+    setSelectedItemIds([...(campaign.targetedItems ?? []).map((entry) => entry.itemId)]);
   };
 
   const handleDeactivate = async (campaignId: string) => {
@@ -254,10 +300,40 @@ export default function CampaignsPage() {
                 />
               </label>
             </div>
-            <button className={`${primaryButtonClass} w-full`} disabled={busyId === 'create'}>
-              {busyId === 'create' ? <LoadingSpinner /> : <BadgePercent className="h-4 w-4" />}
-              Create campaign
-            </button>
+            <div>
+              <span className={labelClass}>Target items (optional)</span>
+              {storeItems.length === 0 ? (
+                <p className="mt-1 text-xs text-foreground-muted">No inventory items available for this store.</p>
+              ) : (
+                <div className="mt-2 max-h-36 space-y-2 overflow-auto rounded-xl border border-border p-2">
+                  {storeItems.map((item) => (
+                    <label className="flex items-center gap-2 text-sm" key={item.id}>
+                      <input
+                        checked={selectedItemIds.includes(item.id)}
+                        onChange={(event) => handleToggleItem(item.id, event.target.checked)}
+                        type="checkbox"
+                      />
+                      <span className="truncate">{item.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              <button className="mt-2 text-xs text-foreground-secondary underline" onClick={clearFormMode} type="button">
+                Clear selected items
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <button className={`${primaryButtonClass} flex-1`} disabled={busyId === 'create'}>
+                {busyId === 'create' ? <LoadingSpinner /> : <BadgePercent className="h-4 w-4" />}
+                {editingCampaignId ? 'Save campaign' : 'Create campaign'}
+              </button>
+              {editingCampaignId ? (
+                <button className={secondaryButtonClass} onClick={clearFormMode} type="button">
+                  <X className="h-4 w-4" />
+                  Cancel
+                </button>
+              ) : null}
+            </div>
           </form>
         </MarketSurface>
 
@@ -303,17 +379,26 @@ export default function CampaignsPage() {
                     <span>{new Date(campaign.startsAt).toLocaleDateString()}</span>
                     <span>{new Date(campaign.endsAt).toLocaleDateString()}</span>
                   </div>
-                  {campaign.isActive ? (
-                    <button
-                      className={`${secondaryButtonClass} mt-4`}
-                      disabled={busyId === campaign.id}
-                      onClick={() => void handleDeactivate(campaign.id)}
-                      type="button"
-                    >
-                      {busyId === campaign.id ? <LoadingSpinner /> : null}
-                      Deactivate
+                  <p className="mt-2 text-xs text-foreground-muted">
+                    {campaign.targetedItems?.length ? `${campaign.targetedItems.length} targeted item(s)` : 'Store-wide coupon'}
+                  </p>
+                  <div className="mt-4 flex gap-2">
+                    <button className={secondaryButtonClass} onClick={() => handleEdit(campaign)} type="button">
+                      <Pencil className="h-4 w-4" />
+                      Edit
                     </button>
-                  ) : null}
+                    {campaign.isActive ? (
+                      <button
+                        className={secondaryButtonClass}
+                        disabled={busyId === campaign.id}
+                        onClick={() => void handleDeactivate(campaign.id)}
+                        type="button"
+                      >
+                        {busyId === campaign.id ? <LoadingSpinner /> : null}
+                        Deactivate
+                      </button>
+                    ) : null}
+                  </div>
                 </article>
               ))}
             </div>

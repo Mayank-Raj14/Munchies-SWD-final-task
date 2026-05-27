@@ -53,7 +53,7 @@ export const createStoreItem = async (storeId: string, payload: ItemFormPayload)
     url,
     method: 'POST',
   });
-  notifyDataChanged(['inventory', 'stores']);
+  notifyDataChanged(['inventory', 'stores', 'analytics']);
   return data;
 };
 
@@ -73,7 +73,7 @@ export const updateStoreItem = async (
     url,
     method: 'PATCH',
   });
-  notifyDataChanged(['inventory', 'stores', 'cart']);
+  notifyDataChanged(['inventory', 'stores', 'cart', 'analytics']);
   return data;
 };
 
@@ -88,6 +88,6 @@ export const deleteStoreItem = async (storeId: string, itemId: string) => {
     url,
     method: 'DELETE',
   });
-  notifyDataChanged(['inventory', 'stores', 'cart']);
+  notifyDataChanged(['inventory', 'stores', 'cart', 'analytics']);
   return data;
 };

@@ -32,11 +32,13 @@ governanceRouter.post(
 );
 governanceRouter.post(
   '/stores/:storeId/users/:userId/block',
+  requireRole(Role.ADMIN),
   validateRequest(storeUserGovernanceActionSchema),
   asyncHandler(blockStoreUser),
 );
 governanceRouter.delete(
   '/stores/:storeId/users/:userId/block',
+  requireRole(Role.ADMIN),
   validateRequest(storeUserGovernanceParamSchema),
   asyncHandler(unblockStoreUser),
 );

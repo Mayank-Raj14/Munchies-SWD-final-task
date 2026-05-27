@@ -7,6 +7,7 @@ import { campaignRouter } from './campaign.routes.js';
 import { cartRouter } from './cart.routes.js';
 import { adminGovernanceRouter, governanceRouter } from './governance.routes.js';
 import { healthRouter } from './health.routes.js';
+import { docsRouter } from './docs.routes.js';
 import { hostelRouter } from './hostel.routes.js';
 import { storeRouter } from './store.routes.js';
 import {
@@ -23,6 +24,7 @@ apiRouter.use('/campaigns', campaignRouter);
 apiRouter.use('/carts', cartRouter);
 apiRouter.use('/governance', governanceRouter);
 apiRouter.use('/health', healthRouter);
+apiRouter.use('/docs', docsRouter);
 apiRouter.use('/hostels', hostelRouter);
 apiRouter.use('/stores', storeRouter);
 apiRouter.use('/store-ownership-requests', storeOwnershipRequestRouter);

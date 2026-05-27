@@ -16,7 +16,7 @@ export const checkoutCart = async (cartId: string, couponCode?: string) => {
     url,
     method: 'POST',
   });
-  notifyDataChanged(['bookings', 'cart', 'inventory', 'stores', 'campaigns']);
+  notifyDataChanged(['bookings', 'cart', 'inventory', 'stores', 'campaigns', 'analytics']);
   return data;
 };
 
@@ -59,7 +59,7 @@ export const updateBookingStatus = async (bookingId: string, status: BookingStat
     url,
     method: 'PATCH',
   });
-  notifyDataChanged(['bookings', 'inventory', 'stores']);
+  notifyDataChanged(['bookings', 'inventory', 'stores', 'analytics']);
   return data;
 };
 
@@ -89,7 +89,7 @@ export const approveBookingCancellation = async (bookingId: string) => {
     url,
     method: 'PATCH',
   });
-  notifyDataChanged(['bookings', 'inventory', 'stores']);
+  notifyDataChanged(['bookings', 'inventory', 'stores', 'analytics']);
   return data;
 };
 

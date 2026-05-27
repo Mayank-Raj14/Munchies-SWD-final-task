@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: Munchies API
+  version: 1.0.0
+servers:
+  - url: /api
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200': { description: OK }
+  /auth/login:
+    post:
+      summary: User login
+      responses:
+        '200': { description: Logged in }
+  /auth/register:
+    post:
+      summary: User registration
+      responses:
+        '201': { description: Created }
+  /stores:
+    get:
+      summary: List stores
+      responses:
+        '200': { description: Store list }
+  /carts:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Get user cart
+      responses:
+        '200': { description: Cart payload }
+  /bookings:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Create booking
+      responses:
+        '201': { description: Booking created }
+  /campaigns:
+    get:
+      summary: List campaigns/coupons
+      responses:
+        '200': { description: Campaign list }
+  /analytics:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Marketplace analytics
+      responses:
+        '200': { description: Analytics payload }

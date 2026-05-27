@@ -23,7 +23,8 @@ import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSyncedRefresh } from '@/lib/sync-events';
 import { ApiError } from '@/services/api';
 import { getHostels } from '@/services/hostels';
-import { createStore, deleteStore, getMyStores, updateStore } from '@/services/stores';
+import { createStoreOwnershipRequest } from '@/services/store-ownership-requests';
+import { deleteStore, getMyStores, updateStore } from '@/services/stores';
 import type { Hostel } from '@/types/hostel';
 import type { Store } from '@/types/store';
 
@@ -53,11 +54,13 @@ export default function StoreOwnerStoresPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadStores = useCallback(
-    async (options: { silent?: boolean } = {}) => {
+    async (options: { silent?: boolean; preserveMessage?: boolean } = {}) => {
       if (!options.silent) {
         setIsLoading(true);
       }
-      setMessage('');
+      if (!options.preserveMessage) {
+        setMessage('');
+      }
 
       try {
         const data = await getMyStores();
@@ -91,7 +94,7 @@ export default function StoreOwnerStoresPage() {
         setMessage(error instanceof Error ? error.message : 'Unable to load hostels.');
       }
 
-      await loadStores();
+      await loadStores({ preserveMessage: true });
     };
 
     void loadPageData();
@@ -131,13 +134,12 @@ export default function StoreOwnerStoresPage() {
         });
         setMessage('Store updated.');
       } else {
-        await createStore({
-          name: form.name,
+        await createStoreOwnershipRequest({
+          storeName: form.name,
           hostelId: form.hostelId,
           roomNumber: form.roomNumber,
-          email: form.email || null,
         });
-        setMessage('Store created.');
+        setMessage('Store request submitted for admin approval.');
       }
 
       setForm(emptyForm);
@@ -180,11 +182,11 @@ export default function StoreOwnerStoresPage() {
 
   return (
     <PageContainer size="wide">
-      <SectionHeader description="Create and edit your storefronts." title="My stores" />
+      <SectionHeader description="Create requests and edit approved storefronts." title="My stores" />
       {message ? (
         <div className="mt-6">
           <Notice
-            tone={message.includes('Unable') || message.includes('failed') ? 'danger' : 'success'}
+            tone={/unable|failed|error/i.test(message) ? 'danger' : 'success'}
           >
             {message}
           </Notice>
@@ -253,7 +255,7 @@ export default function StoreOwnerStoresPage() {
               ) : form.id ? (
                 'Update Store'
               ) : (
-                'Create Store'
+                'Submit For Approval'
               )}
             </button>
             {form.id ? (

@@ -20,6 +20,7 @@ import {
   selectClass,
   SelectShell,
 } from '@/components/marketplace-ui';
+import { MediaFallback } from '@/components/brand-assets';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSyncedRefresh } from '@/lib/sync-events';
 import { ApiError, buildAssetUrl } from '@/services/api';
@@ -33,12 +34,14 @@ import {
 import { getMyStores } from '@/services/stores';
 import type { Item } from '@/types/item';
 import type { Store } from '@/types/store';
+const ACTIVE_STORE_KEY = 'munchies_active_store_id';
 
 type FormState = {
   id?: string;
   name: string;
   description: string;
   category: string;
+  customCategory: string;
   price: string;
   stock: string;
   image: File | null;
@@ -48,6 +51,7 @@ const emptyForm: FormState = {
   name: '',
   description: '',
   category: '',
+  customCategory: '',
   price: '',
   stock: '0',
   image: null,
@@ -58,7 +62,8 @@ const validateForm = (form: FormState) => {
     return 'Item name must be at least 2 characters.';
   }
 
-  if (form.category.trim().length < 2) {
+  const effectiveCategory = form.category === 'Others' ? form.customCategory : form.category;
+  if (effectiveCategory.trim().length < 2) {
     return 'Category must be at least 2 characters.';
   }
 
@@ -118,8 +123,12 @@ export default function InventoryPage() {
         }
 
         setSelectedStoreId((current) => {
+          const persisted = typeof window !== 'undefined' ? window.localStorage.getItem(ACTIVE_STORE_KEY) : '';
           if (current && data.stores.some((store) => store.id === current)) {
             return current;
+          }
+          if (persisted && data.stores.some((store) => store.id === persisted)) {
+            return persisted;
           }
 
           return data.stores[0]?.id ?? '';
@@ -152,6 +161,7 @@ export default function InventoryPage() {
     if (!isAuthorized || !selectedStoreId) {
       return;
     }
+    window.localStorage.setItem(ACTIVE_STORE_KEY, selectedStoreId);
 
     void loadItems(selectedStoreId).catch((error) => {
       setMessage(error instanceof Error ? error.message : 'Unable to load items.');
@@ -186,6 +196,7 @@ export default function InventoryPage() {
     }
 
     const storeId = event.target.value;
+    window.localStorage.setItem(ACTIVE_STORE_KEY, storeId);
     setSelectedStoreId(storeId);
     setForm(emptyForm);
     setMessage('');
@@ -217,7 +228,7 @@ export default function InventoryPage() {
     const payload: ItemFormPayload = {
       name: form.name,
       description: form.description,
-      category: form.category,
+      category: form.category === 'Others' ? form.customCategory.trim() : form.category,
       price: form.price,
       stock: form.stock,
       image: form.image,
@@ -252,6 +263,7 @@ export default function InventoryPage() {
       name: item.name,
       description: item.description ?? '',
       category: item.category,
+      customCategory: '',
       price: item.price,
       stock: String(item.stock),
       image: null,
@@ -287,7 +299,7 @@ export default function InventoryPage() {
       {message ? (
         <div className="mt-6">
           <Notice
-            tone={message.includes('Unable') || message.includes('failed') ? 'danger' : 'success'}
+            tone={/unable|failed|error/i.test(message) ? 'danger' : 'success'}
           >
             {message}
           </Notice>
@@ -365,23 +377,47 @@ export default function InventoryPage() {
             </label>
             <label className="block">
               <span className={labelClass}>Category</span>
-              <input
-                className={fieldClass}
-                disabled={isFormDisabled}
-                minLength={2}
-                onChange={(event) => setForm({ ...form, category: event.target.value })}
-                required
-                value={form.category}
-              />
+              <SelectShell>
+                <select
+                  className={selectClass}
+                  disabled={isFormDisabled}
+                  onChange={(event) =>
+                    setForm({ ...form, category: event.target.value, customCategory: '' })
+                  }
+                  required
+                  value={form.category}
+                >
+                  <option value="">Select category</option>
+                  <option value="Beverage">Beverage</option>
+                  <option value="Snacks">Snacks</option>
+                  <option value="Packet Food">Packet Food</option>
+                  <option value="Others">Others</option>
+                </select>
+              </SelectShell>
             </label>
+            {form.category === 'Others' ? (
+              <label className="block">
+                <span className={labelClass}>Custom category</span>
+                <input
+                  className={fieldClass}
+                  disabled={isFormDisabled}
+                  minLength={2}
+                  onChange={(event) => setForm({ ...form, customCategory: event.target.value })}
+                  required
+                  value={form.customCategory}
+                />
+              </label>
+            ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
                 <span className={labelClass}>Price</span>
                 <input
-                  className={fieldClass}
+                  className={`${fieldClass} [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
                   disabled={isFormDisabled}
                   min="0.01"
-                  onChange={(event) => setForm({ ...form, price: event.target.value })}
+                  onChange={(event) =>
+                    setForm({ ...form, price: event.target.value.replace(/[^\d.]/g, '') })
+                  }
                   required
                   step="0.01"
                   type="number"
@@ -391,10 +427,12 @@ export default function InventoryPage() {
               <label className="block">
                 <span className={labelClass}>Stock</span>
                 <input
-                  className={fieldClass}
+                  className={`${fieldClass} [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
                   disabled={isFormDisabled}
                   min="0"
-                  onChange={(event) => setForm({ ...form, stock: event.target.value })}
+                  onChange={(event) =>
+                    setForm({ ...form, stock: event.target.value.replace(/[^\d]/g, '') })
+                  }
                   required
                   type="number"
                   value={form.stock}
@@ -485,7 +523,9 @@ export default function InventoryPage() {
                         fill
                         src={buildAssetUrl(item.imageUrl)}
                       />
-                    ) : null}
+                    ) : (
+                      <MediaFallback className="rounded-lg" subtitle={item.category} title={item.name} />
+                    )}
                   </div>
                   <div>
                     <div className="flex flex-wrap items-center gap-2">

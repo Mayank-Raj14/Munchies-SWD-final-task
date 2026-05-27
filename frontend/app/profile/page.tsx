@@ -1,20 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  BarChart3,
   ClipboardList,
-  History,
   RefreshCw,
-  ScrollText,
-  Settings,
   ShoppingCart,
   Store,
   User,
-  Zap,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 
 import {
   EmptyState,
@@ -25,82 +19,46 @@ import {
   secondaryButtonClass,
 } from '@/components/marketplace-ui';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { useSyncedRefresh } from '@/lib/sync-events';
 import { getBookings } from '@/services/bookings';
-import {
-  getMyStoreOwnershipRequests,
-  type StoreOwnershipRequest,
-} from '@/services/store-ownership-requests';
-import { getMyStores } from '@/services/stores';
 import { updateEmailPreferences } from '@/services/auth';
 import type { Booking } from '@/types/booking';
-import type { Store as StoreType } from '@/types/store';
 
-type StatCardProps = {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  tone?: 'emerald' | 'amber' | 'stone';
-};
-
-const toneClass = {
-  amber: 'bg-amber-500/15 text-amber-200',
-  emerald: 'bg-accent-muted text-accent',
-  stone: 'bg-surface-raised text-foreground-secondary',
-};
-
-function StatCard({ icon: Icon, label, tone = 'stone', value }: StatCardProps) {
-  return (
-    <MarketSurface className="p-5 transition-all duration-200 hover:border-border-strong">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm text-foreground-muted">{label}</p>
-          <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
-        </div>
-        <div className={`flex h-11 w-11 items-center justify-center rounded-lg ${toneClass[tone]}`}>
-          <Icon className="h-5 w-5" aria-hidden="true" />
-        </div>
-      </div>
-    </MarketSurface>
-  );
-}
 
 export default function ProfilePage() {
   const { user, isLoading, refreshUser } = useRequireAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [requests, setRequests] = useState<StoreOwnershipRequest[]>([]);
-  const [stores, setStores] = useState<StoreType[]>([]);
   const [message, setMessage] = useState('');
   const [preferenceMessage, setPreferenceMessage] = useState('');
   const [isDashboardLoading, setIsDashboardLoading] = useState(true);
+  const [hasLoadedDashboard, setHasLoadedDashboard] = useState(false);
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
 
-  const loadDashboard = useCallback(async () => {
+  const loadDashboard = useCallback(async (options?: { silent?: boolean }) => {
     if (!user) {
       return;
     }
 
-    setIsDashboardLoading(true);
+    const silent = options?.silent ?? false;
+    if (!silent) {
+      setIsDashboardLoading(true);
+    }
     setMessage('');
 
     try {
-      const [bookingData, requestData, storeData] = await Promise.all([
-        getBookings('personal'),
-        getMyStoreOwnershipRequests(),
-        user.role === 'STORE_OWNER' || user.role === 'ADMIN'
-          ? getMyStores()
-          : Promise.resolve({ stores: [] }),
-      ]);
+      const bookingData = await getBookings('personal');
 
       setBookings(bookingData.bookings);
-      setRequests(requestData.requests);
-      setStores(storeData.stores);
-      await refreshUser({ silent: true });
+      setHasLoadedDashboard(true);
+      setMessage('');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to refresh account center.');
     } finally {
-      setIsDashboardLoading(false);
+      if (!silent) {
+        setIsDashboardLoading(false);
+      }
     }
-  }, [refreshUser, user]);
+  }, [user]);
 
   useEffect(() => {
     if (isLoading || !user) {
@@ -110,18 +68,12 @@ export default function ProfilePage() {
     void loadDashboard();
   }, [isLoading, loadDashboard, user]);
 
-  const activeOrders = useMemo(
-    () =>
-      bookings.filter((booking) => booking.status === 'PENDING' || booking.status === 'CONFIRMED'),
-    [bookings],
-  );
-  const completedOrders = useMemo(
-    () => bookings.filter((booking) => booking.status === 'COMPLETED'),
-    [bookings],
-  );
-  const pendingRequests = useMemo(
-    () => requests.filter((request) => request.status === 'PENDING'),
-    [requests],
+  useSyncedRefresh(['auth', 'stores', 'bookings', 'ownership', 'analytics'], () => {
+    void loadDashboard({ silent: true });
+  }, { enabled: !isLoading && Boolean(user) });
+
+  const activeOrders = bookings.filter(
+    (booking) => booking.status === 'PENDING' || booking.status === 'CONFIRMED',
   );
 
   const handleEmailPreferenceChange = async (
@@ -158,7 +110,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <PageContainer size="wide">
+    <PageContainer className="overflow-x-hidden" size="wide">
       <SectionHeader
         action={
           <button
@@ -229,39 +181,7 @@ export default function ProfilePage() {
             </div>
           ) : null}
 
-          <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              icon={ClipboardList}
-              label="Current orders"
-              tone="emerald"
-              value={String(activeOrders.length)}
-            />
-            <StatCard
-              icon={History}
-              label="Completed orders"
-              value={String(completedOrders.length)}
-            />
-            <StatCard
-              icon={ScrollText}
-              label="Store requests"
-              tone="amber"
-              value={String(requests.length)}
-            />
-            <StatCard
-              icon={BarChart3}
-              label="Seller stores"
-              tone="emerald"
-              value={String(stores.length)}
-            />
-            <StatCard
-              icon={Zap}
-              label="Warnings"
-              tone="amber"
-              value={String(user.warningCount ?? 0)}
-            />
-          </section>
-
-          <section className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <section className="mt-6">
             <MarketSurface className="p-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -274,13 +194,7 @@ export default function ProfilePage() {
                   View all
                 </Link>
               </div>
-              {isDashboardLoading ? (
-                <div className="mt-5 space-y-3">
-                  {[0, 1].map((item) => (
-                    <div className="h-20 animate-pulse rounded-lg bg-slate-800/50" key={item} />
-                  ))}
-                </div>
-              ) : activeOrders.length > 0 ? (
+              {activeOrders.length > 0 ? (
                 <div className="mt-5 space-y-3">
                   {activeOrders.slice(0, 3).map((booking) => (
                     <article
@@ -310,66 +224,16 @@ export default function ProfilePage() {
                         Browse stores
                       </Link>
                     }
-                    description="Live orders will show here once you checkout from a hostel store."
+                    description={
+                      isDashboardLoading
+                        ? 'Refreshing your latest orders...'
+                        : 'Live orders will show here once you checkout from a hostel store.'
+                    }
                     icon={ClipboardList}
                     title="No active orders"
                   />
                 </div>
               )}
-            </MarketSurface>
-
-            <MarketSurface className="p-6">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-accent">Activity</p>
-              <h2 className="mt-1 text-xl font-semibold text-foreground">Workflow overview</h2>
-              <div className="mt-5 space-y-3">
-                {[
-                  {
-                    icon: ClipboardList,
-                    label: `${completedOrders.length} completed orders`,
-                    text: 'Finished customer purchases remain available in order history.',
-                  },
-                  {
-                    icon: ScrollText,
-                    label: `${pendingRequests.length} pending store requests`,
-                    text: 'Approval updates are reflected after refresh, focus, or automatic revalidation.',
-                  },
-                  {
-                    icon: Zap,
-                    label:
-                      user.role === 'STORE_OWNER' || user.role === 'ADMIN'
-                        ? 'Seller tools enabled'
-                        : 'Customer mode',
-                    text:
-                      user.role === 'STORE_OWNER' || user.role === 'ADMIN'
-                        ? 'Store, inventory, and seller order controls are available.'
-                        : 'Apply for seller access when you are ready to operate a store.',
-                  },
-                  {
-                    icon: Settings,
-                    label: 'Backend-ready account data',
-                    text: 'This page is structured around live services and can absorb richer analytics later.',
-                  },
-                ].map((item) => {
-                  const Icon = item.icon;
-
-                  return (
-                    <div
-                      className="flex gap-3 rounded-lg border border-border bg-surface-raised p-3"
-                      key={item.label}
-                    >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-accent-muted text-accent">
-                        <Icon className="h-4 w-4" aria-hidden="true" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">{item.label}</p>
-                        <p className="mt-1 text-xs font-medium leading-5 text-foreground-muted">
-                          {item.text}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
             </MarketSurface>
           </section>
 

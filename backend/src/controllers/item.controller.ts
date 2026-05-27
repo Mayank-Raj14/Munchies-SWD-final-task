@@ -15,7 +15,7 @@ const imageUrlFromRequest = (req: AuthenticatedRequest) => {
 };
 
 export const getItemsForStore = async (req: AuthenticatedRequest, res: Response) => {
-  const items = await listStoreItems(req.params.storeId ?? '', req.user!);
+  const items = await listStoreItems(req.params.storeId ?? '');
 
   res.status(200).json({ items });
 };

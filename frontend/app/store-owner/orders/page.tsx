@@ -76,6 +76,7 @@ export default function StoreOwnerOrdersPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const loadBookings = useCallback(
@@ -96,9 +97,8 @@ export default function StoreOwnerOrdersPage() {
 
         setError(loadError instanceof Error ? loadError.message : 'Unable to load orders.');
       } finally {
-        if (!options.silent) {
-          setIsLoading(false);
-        }
+        setHasLoaded(true);
+        setIsLoading(false);
       }
     },
     [router],
@@ -212,17 +212,29 @@ export default function StoreOwnerOrdersPage() {
             <Notice tone="success">{message}</Notice>
           </div>
         ) : null}
-        {error ? (
+        {error && hasLoaded ? (
           <div className="mt-6">
             <Notice tone="danger">{error}</Notice>
           </div>
         ) : null}
 
-        {isLoading ? (
+        {isLoading && !hasLoaded ? (
           <div className="mt-8 grid gap-5 lg:grid-cols-2">
             {[0, 1, 2, 3].map((item) => (
-              <MarketSurface className="h-48 animate-pulse" key={item} />
+              <MarketSurface className="animate-pulse p-5" key={item}>
+                <div className="h-5 w-40 rounded bg-surface-raised" />
+                <div className="mt-3 h-4 w-52 rounded bg-surface-raised" />
+                <div className="mt-6 h-10 rounded bg-surface-raised" />
+              </MarketSurface>
             ))}
+          </div>
+        ) : error && bookings.length === 0 ? (
+          <div className="mt-8">
+            <EmptyState
+              description="We could not load orders. Please retry."
+              icon={ReceiptText}
+              title="Unable to load orders"
+            />
           </div>
         ) : bookings.length === 0 ? (
           <div className="mt-8">

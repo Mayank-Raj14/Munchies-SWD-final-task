@@ -156,6 +156,7 @@ body {
   margin: 0;
   min-height: 100vh;
   font-family:
+    'Plus Jakarta Sans',
     Inter,
     ui-sans-serif,
     system-ui,
@@ -167,6 +168,18 @@ body {
   color: var(--text-primary);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at top, rgba(249, 115, 22, 0.08), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(255, 255, 255, 0.04), transparent 24%);
+  opacity: 0.9;
 }
 
 ::selection {
@@ -218,6 +231,43 @@ textarea {
   background: var(--border-strong);
 }
 
+.bg-grid-soft {
+  background-image:
+    linear-gradient(to right, var(--border-subtle) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border-subtle) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.skeleton-block {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-block::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  animation: skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+.page-fade-in {
+  animation: page-fade-in 220ms ease-out;
+}
+
+.elevated-hover {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+
+.elevated-hover:hover {
+  transform: translateY(-1px);
+}
+
 @layer components {
   .surface-card {
     background: var(--bg-surface);
@@ -237,7 +287,33 @@ textarea {
   }
 }
 
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  body {
+    scroll-behavior: auto;
+  }
+
+  body::before,
+  .skeleton-block::after {
+    animation: none !important;
+  }
+
   *,
   *::before,
   *::after {

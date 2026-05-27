@@ -5,21 +5,10 @@ import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 import { ArrowRight, LockKeyhole, Mail } from 'lucide-react';
 
+import { AuthHero, authShellClass, fieldClass, primaryButtonClass } from '@/components/marketplace-ui';
 import { useAuth } from '@/contexts/auth-context';
 import { ApiError } from '@/services/api';
 import { loginUser, saveAuthToken } from '@/services/auth';
-
-const authShellClass =
-  'grid w-full max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-[#111111] shadow-2xl lg:grid-cols-[1fr_430px]';
-
-const authHeroClass =
-  'hidden flex-col justify-between bg-gradient-to-br from-orange-500 via-red-500 to-pink-500 p-10 lg:flex';
-
-const fieldClass =
-  'mt-2 w-full rounded-xl border border-white/10 bg-[#1a1a1a] px-4 py-3 text-sm text-white outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-500/30';
-
-const primaryButtonClass =
-  'flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 font-medium text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -67,41 +56,33 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#0a0a0a] px-4 py-10 sm:px-6">
+    <main className="bg-grid-soft relative flex min-h-screen items-center justify-center overflow-hidden bg-[#09090b] px-4 py-10 sm:px-6">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(251,191,36,0.08),transparent_22%)]" />
       <section className={authShellClass}>
-        <div className={authHeroClass}>
-          <Link className="text-3xl font-bold text-white" href="/">
+        <AuthHero
+          eyebrow="Campus commerce"
+          points={['Fast hostel ordering', 'Cleaner seller dashboards', 'Real-time order flow']}
+          subtitle="Sign in to manage orders, browse stores, and keep your campus kitchen routine moving."
+          title="Welcome back to Munchies"
+        />
+
+        <div className="p-6 sm:p-8 lg:p-10">
+          <Link className="text-2xl font-semibold tracking-tight text-white lg:hidden" href="/">
             Munchies
           </Link>
 
-          <div>
-            <h1 className="text-4xl font-bold leading-tight text-white">
-              Welcome back
-            </h1>
-
-            <p className="mt-3 text-sm text-orange-100">
-              Sign in to continue ordering from your hostel marketplace.
-            </p>
-          </div>
-        </div>
-
-        <div className="p-6 sm:p-8">
-          <Link className="text-2xl font-bold text-white lg:hidden" href="/">
-            Munchies
-          </Link>
-
-          <h1 className="mt-8 text-3xl font-bold text-white lg:mt-0">
+          <h1 className="mt-8 text-3xl font-semibold tracking-tight text-white lg:mt-0">
             Login
           </h1>
 
-          <p className="mt-2 text-sm text-gray-400">
+          <p className="mt-2 text-sm leading-6 text-slate-400">
             Use your account email and password.
           </p>
 
-          <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
+          <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
             <label className="block">
-              <span className="flex items-center gap-2 text-sm font-medium text-gray-300">
-                <Mail className="h-4 w-4 text-orange-400" />
+              <span className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                <Mail className="h-4 w-4 text-orange-400" aria-hidden="true" />
                 Email
               </span>
 
@@ -115,8 +96,8 @@ export default function LoginPage() {
             </label>
 
             <label className="block">
-              <span className="flex items-center gap-2 text-sm font-medium text-gray-300">
-                <LockKeyhole className="h-4 w-4 text-orange-400" />
+              <span className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                <LockKeyhole className="h-4 w-4 text-orange-400" aria-hidden="true" />
                 Password
               </span>
 
@@ -130,7 +111,7 @@ export default function LoginPage() {
             </label>
 
             <button
-              className={primaryButtonClass}
+              className={`${primaryButtonClass} h-11 w-full bg-orange-500 text-white hover:bg-orange-400`}
               disabled={isSubmitting}
               type="submit"
             >
@@ -148,7 +129,7 @@ export default function LoginPage() {
             </p>
           ) : null}
 
-          <p className="mt-6 text-sm text-gray-400">
+          <p className="mt-6 text-sm text-slate-400">
             Need an account?{' '}
             <Link
               className="font-medium text-orange-400 transition hover:text-orange-300"
@@ -162,4 +143,3 @@ export default function LoginPage() {
     </main>
   );
 }
-

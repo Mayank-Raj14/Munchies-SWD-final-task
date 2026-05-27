@@ -19,6 +19,7 @@ import {
   primaryButtonClass,
   secondaryButtonClass,
 } from '@/components/marketplace-ui';
+import { MediaFallback } from '@/components/brand-assets';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSyncedRefresh } from '@/lib/sync-events';
 import { checkoutCart } from '@/services/bookings';
@@ -267,7 +268,9 @@ export default function CartPage() {
                             fill
                             src={buildAssetUrl(cartItem.item.imageUrl)}
                           />
-                        ) : null}
+                        ) : (
+                          <MediaFallback className="rounded-lg" subtitle={cartItem.item.category} title={cartItem.item.name} />
+                        )}
                       </div>
                       <div>
                         <h3 className="font-medium text-foreground">{cartItem.item.name}</h3>

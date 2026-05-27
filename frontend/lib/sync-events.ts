@@ -7,6 +7,7 @@ export type SyncDomain =
   | 'auth'
   | 'bookings'
   | 'cart'
+  | 'analytics'
   | 'campaigns'
   | 'hostels'
   | 'inventory'

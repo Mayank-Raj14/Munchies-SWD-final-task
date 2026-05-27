@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import {
+  CardSkeleton,
   EmptyState,
   MarketSurface,
   Notice,
@@ -117,6 +118,7 @@ export function StoreDirectory() {
   const [hostels, setHostels] = useState<Hostel[]>([]);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const deferredFilterSearch = useDeferredValue(filters.filterSearch);
 
   const loadStores = useCallback(
     async (nextSearch = submittedSearch, page = 1, options: { silent?: boolean } = {}) => {
@@ -168,7 +170,7 @@ export function StoreDirectory() {
   }, [stores]);
 
   const visibleStores = useMemo(() => {
-    const filterTerm = filters.filterSearch.trim().toLowerCase();
+    const filterTerm = deferredFilterSearch.trim().toLowerCase();
     const priceRange = getPriceRange(filters);
 
     if (priceRange.isInvalid) {
@@ -211,7 +213,7 @@ export function StoreDirectory() {
       }
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [filters, stores]);
+  }, [deferredFilterSearch, filters, stores]);
 
   const activeChips = useMemo(() => {
     const chips: { key: keyof Filters | 'search'; label: string }[] = [];
@@ -578,11 +580,11 @@ export function StoreDirectory() {
       </div>
 
       <div className="mx-auto grid w-full max-w-content-wide flex-1 gap-5 px-4 pt-5 sm:px-5 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-7">
-        <aside className="sticky top-[7.25rem] hidden h-[calc(100vh-8rem)] overflow-hidden rounded-2xl border border-border bg-surface shadow-card lg:block">
+        <aside className="sticky top-[7.25rem] hidden h-[calc(100vh-8rem)] overflow-hidden rounded-2xl border border-border bg-surface shadow-card page-fade-in lg:block">
           {FilterContent}
         </aside>
 
-        <main className="min-w-0">
+        <main className="min-w-0 page-fade-in">
           {message ? (
             <div className="mb-4">
               <Notice tone="warning">{message}</Notice>
@@ -604,6 +606,9 @@ export function StoreDirectory() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              {deferredFilterSearch !== filters.filterSearch ? (
+                <span className="text-xs font-medium text-foreground-muted">Updating filters...</span>
+              ) : null}
               <SelectShell>
                 <select
                   className={`${selectClass} mt-0 h-9 py-0 text-xs`}
@@ -640,10 +645,7 @@ export function StoreDirectory() {
           {isLoading ? (
             <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
               {[0, 1, 2, 3, 4, 5].map((item) => (
-                <div
-                  key={item}
-                  className="h-56 animate-pulse rounded-2xl border border-border bg-surface"
-                />
+                <CardSkeleton className="h-full min-h-56" key={item} />
               ))}
             </div>
           ) : visibleStores.length === 0 ? (
@@ -689,11 +691,11 @@ export function StoreDirectory() {
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
             aria-label="Close filters"
-            className="absolute inset-0 bg-black/55"
+            className="absolute inset-0 bg-black/55 transition-opacity duration-ui"
             onClick={() => setDrawerOpen(false)}
             type="button"
           />
-          <div className="absolute inset-y-0 left-0 w-[min(88vw,360px)] border-r border-border bg-surface shadow-card">
+          <div className="absolute inset-y-0 left-0 w-[min(88vw,360px)] border-r border-border bg-surface shadow-card transition-transform duration-ui">
             <button
               className="absolute right-3 top-3 z-10 rounded-lg border border-border bg-surface-raised p-2 text-foreground-secondary"
               onClick={() => setDrawerOpen(false)}

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { BrandMark } from '@/components/brand-assets';
 import { Sidebar } from '@/components/sidebar';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -45,21 +46,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-canvas lg:pl-sidebar">
       <Sidebar />
 
-      <div className="flex min-h-screen flex-col">
+      <div className="flex min-h-screen min-w-0 flex-col overflow-x-clip">
         {!isBrowseRoute ? (
           <header className="sticky top-0 z-30 border-b border-border-subtle bg-canvas/90 shadow-header backdrop-blur-md">
             <div className="flex h-12 items-center gap-3 px-4 sm:px-5 lg:px-7">
               <Link
                 href="/"
-                className="flex shrink-0 items-center gap-2 text-[15px] font-semibold tracking-tight text-foreground lg:hidden"
+                className="flex shrink-0 items-center text-[15px] font-semibold tracking-tight text-foreground lg:hidden"
               >
-                <span
-                  aria-hidden="true"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-xs text-accent-contrast"
-                >
-                  M
-                </span>
-                Munchies
+                <BrandMark compact />
               </Link>
 
               <h1 className="hidden min-w-0 truncate text-sm font-medium text-foreground lg:block">

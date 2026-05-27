@@ -6,7 +6,7 @@ import { FormEvent, useState } from 'react';
 import { ArrowRight, LockKeyhole, Mail, User } from 'lucide-react';
 
 import {
-  authHeroClass,
+  AuthHero,
   authShellClass,
   fieldClass,
   primaryButtonClass,
@@ -50,31 +50,29 @@ export default function RegisterPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
-      <section className={`${authShellClass} lg:grid-cols-[1fr_430px]`}>
-        <div className={authHeroClass}>
-          <Link className="text-2xl font-semibold text-foreground" href="/">
+    <main className="bg-grid-soft relative flex min-h-screen items-center justify-center overflow-hidden bg-[#09090b] px-4 py-10 sm:px-6">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.14),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.05),transparent_24%)]" />
+      <section className={authShellClass}>
+        <AuthHero
+          eyebrow="New account"
+          points={['Browse nearby stores', 'Track live order status', 'Manage seller tools later']}
+          subtitle="Create an account once and keep ordering, selling, and tracking from one campus workspace."
+          title="Create your Munchies account"
+        />
+        <div className="p-6 sm:p-8 lg:p-10">
+          <Link className="text-xl font-semibold tracking-tight text-white lg:hidden" href="/">
             Munchies
           </Link>
-          <div>
-            <h1 className="text-2xl font-semibold leading-tight text-foreground">
-              Create your account
-            </h1>
-            <p className="mt-2 text-sm text-foreground-muted">Order from stores on campus.</p>
-          </div>
-        </div>
-        <div className="p-6 sm:p-8">
-          <Link className="text-xl font-semibold text-foreground lg:hidden" href="/">
-            Munchies
-          </Link>
-          <h1 className="mt-8 text-2xl font-semibold text-foreground lg:mt-0">Create account</h1>
-          <p className="mt-2 text-sm text-foreground-secondary">
+          <h1 className="mt-8 text-3xl font-semibold tracking-tight text-white lg:mt-0">
+            Create account
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-slate-400">
             Join with your name, email, and a secure password.
           </p>
-          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+          <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
             <label className="block">
-              <span className="flex items-center gap-2 text-sm font-medium text-foreground-secondary">
-                <User className="h-4 w-4 text-accent" aria-hidden="true" />
+              <span className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                <User className="h-4 w-4 text-orange-400" aria-hidden="true" />
                 Name
               </span>
               <input
@@ -87,8 +85,8 @@ export default function RegisterPage() {
               />
             </label>
             <label className="block">
-              <span className="flex items-center gap-2 text-sm font-medium text-foreground-secondary">
-                <Mail className="h-4 w-4 text-accent" aria-hidden="true" />
+              <span className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                <Mail className="h-4 w-4 text-orange-400" aria-hidden="true" />
                 Email
               </span>
               <input
@@ -100,8 +98,8 @@ export default function RegisterPage() {
               />
             </label>
             <label className="block">
-              <span className="flex items-center gap-2 text-sm font-medium text-foreground-secondary">
-                <LockKeyhole className="h-4 w-4 text-accent" aria-hidden="true" />
+              <span className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                <LockKeyhole className="h-4 w-4 text-orange-400" aria-hidden="true" />
                 Password
               </span>
               <input
@@ -114,7 +112,7 @@ export default function RegisterPage() {
               />
             </label>
             <button
-              className={`${primaryButtonClass} w-full`}
+              className={`${primaryButtonClass} h-11 w-full bg-orange-500 text-white hover:bg-orange-400`}
               disabled={isSubmitting}
               type="submit"
             >
@@ -127,9 +125,9 @@ export default function RegisterPage() {
               {message}
             </p>
           ) : null}
-          <p className="mt-6 text-sm text-foreground-secondary">
+          <p className="mt-6 text-sm text-slate-400">
             Already registered?{' '}
-            <Link className="font-medium text-accent hover:text-accent-soft" href="/login">
+            <Link className="font-medium text-orange-400 hover:text-orange-300" href="/login">
               Login
             </Link>
           </p>

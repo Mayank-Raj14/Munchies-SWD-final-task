@@ -43,8 +43,8 @@ export const createStoreOwnershipRequest = async (input: CreateStoreOwnershipReq
     throw new AppError('User not found', 404);
   }
 
-  if (user.role !== Role.USER) {
-    throw new AppError('Only regular users can request store ownership', 403);
+  if (user.role === Role.ADMIN) {
+    throw new AppError('Admins cannot submit store ownership requests', 403);
   }
 
   const hostel = await prisma.hostel.findUnique({
@@ -75,7 +75,6 @@ export const createStoreOwnershipRequest = async (input: CreateStoreOwnershipReq
     where: {
       status: StoreOwnershipRequestStatus.PENDING,
       OR: [
-        { userId: input.userId },
         {
           hostelId: input.hostelId,
           roomNumber: input.roomNumber,
@@ -87,7 +86,7 @@ export const createStoreOwnershipRequest = async (input: CreateStoreOwnershipReq
   });
 
   if (pendingRequest) {
-    throw new AppError('You already have a pending store ownership request', 409);
+    throw new AppError('A pending request already exists for this store', 409);
   }
 
   return prisma.storeOwnershipRequest.create({

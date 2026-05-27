@@ -43,7 +43,10 @@ const userSelect = {
   updatedAt: true,
 } as const;
 
-const getPlatformAdminEmail = () => env.PLATFORM_ADMIN_EMAIL?.trim().toLowerCase() ?? null;
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
+const getPlatformAdminEmail = () =>
+  env.ADMIN_EMAIL?.trim().toLowerCase() ?? env.PLATFORM_ADMIN_EMAIL?.trim().toLowerCase() ?? null;
 
 const syncPlatformAdminRole = async (userId: string, email: string, role: Role) => {
   const platformAdminEmail = getPlatformAdminEmail();
@@ -65,9 +68,30 @@ const syncPlatformAdminRole = async (userId: string, email: string, role: Role) 
   return updated.role;
 };
 
+export const bootstrapPlatformAdminRole = async () => {
+  const platformAdminEmail = getPlatformAdminEmail();
+  if (!platformAdminEmail) {
+    console.warn('ADMIN_EMAIL / PLATFORM_ADMIN_EMAIL is not set. Platform admin auto-promotion is disabled.');
+    return;
+  }
+
+  const result = await prisma.user.updateMany({
+    where: {
+      email: { equals: platformAdminEmail, mode: 'insensitive' },
+      role: { not: Role.ADMIN },
+    },
+    data: { role: Role.ADMIN },
+  });
+
+  if (result.count > 0) {
+    console.log(`Promoted ${result.count} platform admin account(s) for ${platformAdminEmail}.`);
+  }
+};
+
 export const registerUser = async (input: RegisterInput) => {
+  const normalizedEmail = normalizeEmail(input.email);
   const existingUser = await prisma.user.findUnique({
-    where: { email: input.email },
+    where: { email: normalizedEmail },
     select: { id: true },
   });
 
@@ -78,7 +102,7 @@ export const registerUser = async (input: RegisterInput) => {
   const user = await prisma.user.create({
     data: {
       name: input.name,
-      email: input.email,
+      email: normalizedEmail,
       password: await hashPassword(input.password),
     },
     select: userSelect,
@@ -92,8 +116,9 @@ export const registerUser = async (input: RegisterInput) => {
 };
 
 export const loginUser = async (input: LoginInput) => {
-  const user = await prisma.user.findUnique({
-    where: { email: input.email },
+  const normalizedEmail = normalizeEmail(input.email);
+  const user = await prisma.user.findFirst({
+    where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
     include: {
       globalBlock: {
         select: {

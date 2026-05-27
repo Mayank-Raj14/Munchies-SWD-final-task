@@ -15,29 +15,20 @@ export const validateRequest = (schema: ZodSchema): RequestHandler => {
       void deleteUploadedFile(req.file?.path ? `/uploads/items/${req.file.filename}` : undefined);
 
       res.status(400).json({
-        message: 'Validation failed',
-        errors: result.error.flatten().fieldErrors,
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed',
+          details: result.error.flatten().fieldErrors,
+        },
       });
       return;
     }
 
-    const data = result.data as {
-      body?: unknown;
-      params?: unknown;
-      query?: unknown;
-    };
-
-    if (data.body) {
-      req.body = data.body;
-    }
-
-    if (data.params) {
-      req.params = data.params as typeof req.params;
-    }
-
-    if (data.query) {
-      req.query = data.query as typeof req.query;
-    }
+    const data = result.data as { body?: unknown; params?: unknown; query?: unknown };
+    if (data.body) req.body = data.body;
+    if (data.params) req.params = data.params as typeof req.params;
+    if (data.query) req.query = data.query as typeof req.query;
 
     next();
   };

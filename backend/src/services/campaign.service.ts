@@ -24,6 +24,7 @@ type CampaignInput = {
   startsAt: Date;
   endsAt: Date;
   isActive?: boolean;
+  itemIds?: string[];
 };
 
 const campaignInclude = {
@@ -32,6 +33,11 @@ const campaignInclude = {
       id: true,
       name: true,
       ownerId: true,
+    },
+  },
+  targetedItems: {
+    select: {
+      itemId: true,
     },
   },
 } as const;
@@ -129,6 +135,19 @@ export const createCampaign = async (user: UserContext, input: CampaignInput) =>
   await assertCampaignStoreAccess(input.storeId, user);
 
   const code = await getAvailableCode(input.code);
+  const itemIds = [...new Set((input.itemIds ?? []).filter(Boolean))];
+  if (itemIds.length) {
+    const validItems = await prisma.item.count({
+      where: {
+        storeId: input.storeId,
+        id: { in: itemIds },
+      },
+    });
+    if (validItems !== itemIds.length) {
+      throw new AppError('Targeted items must belong to the campaign store', 400);
+    }
+  }
+
   const campaign = await prisma.campaign.create({
     data: {
       storeId: input.storeId,
@@ -141,6 +160,13 @@ export const createCampaign = async (user: UserContext, input: CampaignInput) =>
       startsAt: input.startsAt,
       endsAt: input.endsAt,
       isActive: input.isActive ?? true,
+      targetedItems: itemIds.length
+        ? {
+            createMany: {
+              data: itemIds.map((itemId) => ({ itemId })),
+            },
+          }
+        : undefined,
     },
     include: campaignInclude,
   });
@@ -198,6 +224,21 @@ export const updateCampaign = async (
   }
 
   await assertCampaignStoreAccess(existing.storeId, user);
+  if (input.itemIds) {
+    const dedupedItemIds = [...new Set(input.itemIds.filter(Boolean))];
+    if (dedupedItemIds.length) {
+      const validItems = await prisma.item.count({
+        where: {
+          storeId: existing.storeId,
+          id: { in: dedupedItemIds },
+        },
+      });
+      if (validItems !== dedupedItemIds.length) {
+        throw new AppError('Targeted items must belong to the campaign store', 400);
+      }
+    }
+    input.itemIds = dedupedItemIds;
+  }
 
   const current = await prisma.campaign.findUnique({
     where: { id: campaignId },
@@ -230,6 +271,20 @@ export const updateCampaign = async (
       minOrderValue: input.minOrderValue,
       globalUsageLimit: input.globalUsageLimit,
       perUserUsageLimit: input.perUserUsageLimit,
+      ...(input.itemIds
+        ? {
+            targetedItems: {
+              deleteMany: {},
+              ...(input.itemIds.length
+                ? {
+                    createMany: {
+                      data: [...new Set(input.itemIds)].map((itemId) => ({ itemId })),
+                    },
+                  }
+                : {}),
+            },
+          }
+        : {}),
     },
     include: campaignInclude,
   });
@@ -319,7 +374,21 @@ export const validateCouponForCart = async (
   }, new Prisma.Decimal(0));
 
   const campaign = await validateCouponForStore(userId, cart.storeId, normalizedCode, subtotal, db);
-  const discountAmount = calculateDiscount(campaign, subtotal);
+  const targetItemIds = new Set(campaign.targetedItems.map((entry) => entry.itemId));
+  const eligibleSubtotal =
+    targetItemIds.size === 0
+      ? subtotal
+      : cart.items.reduce((total, cartItem) => {
+          return targetItemIds.has(cartItem.itemId)
+            ? total.plus(new Prisma.Decimal(cartItem.item.price).mul(cartItem.quantity))
+            : total;
+        }, new Prisma.Decimal(0));
+
+  if (targetItemIds.size > 0 && eligibleSubtotal.lessThanOrEqualTo(0)) {
+    throw new AppError('Coupon is not valid for items in this cart', 400);
+  }
+
+  const discountAmount = calculateDiscount(campaign, eligibleSubtotal);
 
   return {
     campaign,
@@ -405,6 +474,9 @@ export const claimCouponUsage = async (
   const updated = await db.campaign.updateMany({
     where: {
       id: campaignId,
+      isActive: true,
+      startsAt: { lte: new Date() },
+      endsAt: { gt: new Date() },
       ...(campaign.globalUsageLimit === null
         ? {}
         : { usedCount: { lt: campaign.globalUsageLimit } }),

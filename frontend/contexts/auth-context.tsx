@@ -19,6 +19,17 @@ export type AuthUser = {
   name: string;
   email: string;
   role: 'USER' | 'STORE_OWNER' | 'ADMIN';
+  warningCount?: number;
+  emailNotificationsEnabled?: boolean;
+  preferences?: {
+    bookings: boolean;
+    promotions: boolean;
+    newStores: boolean;
+  } | null;
+  globalBlock?: {
+    reason: string;
+    createdAt: string;
+  } | null;
 };
 
 type AuthContextValue = {

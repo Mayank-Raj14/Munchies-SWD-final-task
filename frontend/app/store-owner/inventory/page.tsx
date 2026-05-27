@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from 'react';
-import { PackageSearch } from 'lucide-react';
+import { AlertCircle, PackagePlus, PackageSearch } from 'lucide-react';
 
 import {
   EmptyState,
@@ -53,6 +53,28 @@ const emptyForm: FormState = {
   image: null,
 };
 
+const validateForm = (form: FormState) => {
+  if (form.name.trim().length < 2) {
+    return 'Item name must be at least 2 characters.';
+  }
+
+  if (form.category.trim().length < 2) {
+    return 'Category must be at least 2 characters.';
+  }
+
+  const price = Number(form.price);
+  if (!Number.isFinite(price) || price <= 0) {
+    return 'Enter a price greater than zero.';
+  }
+
+  const stock = Number(form.stock);
+  if (!Number.isInteger(stock) || stock < 0) {
+    return 'Stock must be a whole number of zero or more.';
+  }
+
+  return '';
+};
+
 export default function InventoryPage() {
   const router = useRouter();
   const { isLoading: isAuthLoading, isAuthorized } = useRequireAuth(['STORE_OWNER', 'ADMIN']);
@@ -61,7 +83,9 @@ export default function InventoryPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [message, setMessage] = useState('');
+  const [formError, setFormError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isItemsLoading, setIsItemsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadItems = useCallback(async (storeId: string) => {
@@ -70,8 +94,13 @@ export default function InventoryPage() {
       return;
     }
 
-    const data = await getStoreItems(storeId);
-    setItems(data.items);
+    setIsItemsLoading(true);
+    try {
+      const data = await getStoreItems(storeId);
+      setItems(data.items);
+    } finally {
+      setIsItemsLoading(false);
+    }
   }, []);
 
   const loadStores = useCallback(
@@ -84,6 +113,9 @@ export default function InventoryPage() {
       try {
         const data = await getMyStores();
         setStores(data.stores);
+        if (data.stores.length === 0) {
+          setItems([]);
+        }
 
         setSelectedStoreId((current) => {
           if (current && data.stores.some((store) => store.id === current)) {
@@ -157,6 +189,7 @@ export default function InventoryPage() {
     setSelectedStoreId(storeId);
     setForm(emptyForm);
     setMessage('');
+    setFormError('');
 
     try {
       await loadItems(storeId);
@@ -171,8 +204,15 @@ export default function InventoryPage() {
       return;
     }
 
+    const validationMessage = validateForm(form);
+    if (validationMessage) {
+      setFormError(validationMessage);
+      return;
+    }
+
     setIsSubmitting(true);
     setMessage('');
+    setFormError('');
 
     const payload: ItemFormPayload = {
       name: form.name,
@@ -185,15 +225,18 @@ export default function InventoryPage() {
 
     try {
       if (form.id) {
-        await updateStoreItem(selectedStoreId, form.id, payload);
+        const data = await updateStoreItem(selectedStoreId, form.id, payload);
+        setItems((currentItems) =>
+          currentItems.map((item) => (item.id === data.item.id ? data.item : item)),
+        );
         setMessage('Item updated.');
       } else {
-        await createStoreItem(selectedStoreId, payload);
+        const data = await createStoreItem(selectedStoreId, payload);
+        setItems((currentItems) => [data.item, ...currentItems]);
         setMessage('Item created.');
       }
 
       setForm(emptyForm);
-      await loadItems(selectedStoreId);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to save item.');
     } finally {
@@ -202,6 +245,8 @@ export default function InventoryPage() {
   };
 
   const startEdit = (item: Item) => {
+    setFormError('');
+    setMessage('');
     setForm({
       id: item.id,
       name: item.name,
@@ -232,6 +277,10 @@ export default function InventoryPage() {
     }
   };
 
+  const selectedStore = stores.find((store) => store.id === selectedStoreId);
+  const hasStores = stores.length > 0;
+  const isFormDisabled = isSubmitting || isLoading || !hasStores;
+
   return (
     <PageContainer size="wide">
       <SectionHeader description="Manage items for your stores." title="Inventory" />
@@ -246,9 +295,26 @@ export default function InventoryPage() {
       ) : null}
       <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,380px)_1fr]">
         <form className={formPanelClass} onSubmit={handleSubmit}>
-          <h2 className="text-lg font-semibold text-foreground">
-            {form.id ? 'Edit item' : 'New item'}
-          </h2>
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-muted text-accent">
+              <PackagePlus className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">
+                {form.id ? 'Edit item' : 'New item'}
+              </h2>
+              <p className="mt-1 text-sm text-foreground-muted">
+                {selectedStore ? selectedStore.name : 'Choose an approved store first.'}
+              </p>
+            </div>
+          </div>
+
+          {formError ? (
+            <div className="mt-5 flex gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm font-medium text-red-300">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{formError}</span>
+            </div>
+          ) : null}
 
           <label className="mt-6 block">
             <span className={labelClass}>Store</span>
@@ -257,10 +323,10 @@ export default function InventoryPage() {
                 className={selectClass}
                 onChange={handleStoreChange}
                 required
-                disabled={isSubmitting}
+                disabled={isSubmitting || isLoading}
                 value={selectedStoreId}
               >
-                <option value="">Select store</option>
+                <option value="">{isLoading ? 'Loading stores...' : 'Select store'}</option>
                 {stores.map((store) => (
                   <option key={store.id} value={store.id}>
                     {store.name}
@@ -270,11 +336,18 @@ export default function InventoryPage() {
             </SelectShell>
           </label>
 
-          <div className="mt-4 space-y-4">
+          {!isLoading && !hasStores ? (
+            <div className="mt-5 rounded-lg border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-medium text-amber-200">
+              No approved store is linked to your account yet.
+            </div>
+          ) : null}
+
+          <div className="mt-5 space-y-5">
             <label className="block">
               <span className={labelClass}>Name</span>
               <input
                 className={fieldClass}
+                disabled={isFormDisabled}
                 minLength={2}
                 onChange={(event) => setForm({ ...form, name: event.target.value })}
                 required
@@ -285,6 +358,7 @@ export default function InventoryPage() {
               <span className={labelClass}>Description</span>
               <textarea
                 className={`${fieldClass} min-h-24`}
+                disabled={isFormDisabled}
                 onChange={(event) => setForm({ ...form, description: event.target.value })}
                 value={form.description}
               />
@@ -293,6 +367,7 @@ export default function InventoryPage() {
               <span className={labelClass}>Category</span>
               <input
                 className={fieldClass}
+                disabled={isFormDisabled}
                 minLength={2}
                 onChange={(event) => setForm({ ...form, category: event.target.value })}
                 required
@@ -304,6 +379,7 @@ export default function InventoryPage() {
                 <span className={labelClass}>Price</span>
                 <input
                   className={fieldClass}
+                  disabled={isFormDisabled}
                   min="0.01"
                   onChange={(event) => setForm({ ...form, price: event.target.value })}
                   required
@@ -316,6 +392,7 @@ export default function InventoryPage() {
                 <span className={labelClass}>Stock</span>
                 <input
                   className={fieldClass}
+                  disabled={isFormDisabled}
                   min="0"
                   onChange={(event) => setForm({ ...form, stock: event.target.value })}
                   required
@@ -329,6 +406,7 @@ export default function InventoryPage() {
               <input
                 accept="image/*"
                 className={fieldClass}
+                disabled={isFormDisabled}
                 onChange={(event) => setForm({ ...form, image: event.target.files?.[0] ?? null })}
                 type="file"
               />
@@ -338,7 +416,7 @@ export default function InventoryPage() {
           <div className="mt-6 flex gap-3">
             <button
               className={primaryButtonClass}
-              disabled={isSubmitting || !selectedStoreId}
+              disabled={isFormDisabled || !selectedStoreId}
               type="submit"
             >
               {isSubmitting ? (
@@ -365,8 +443,20 @@ export default function InventoryPage() {
         </form>
 
         <MarketSurface className="p-6">
-          <h2 className="text-xl font-semibold text-foreground">Live inventory</h2>
-          {isLoading ? (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">Live inventory</h2>
+              <p className="mt-1 text-sm text-foreground-muted">
+                {selectedStore ? `${selectedStore.name} products` : 'Select a store to view items.'}
+              </p>
+            </div>
+            {selectedStore ? (
+              <span className="rounded-full bg-surface-raised px-3 py-1 text-xs font-semibold text-foreground-secondary">
+                {items.length} items
+              </span>
+            ) : null}
+          </div>
+          {isLoading || isItemsLoading ? (
             <div className="mt-6 space-y-4">
               {[0, 1, 2].map((item) => (
                 <div className="h-28 animate-pulse rounded-lg bg-surface-raised" key={item} />
@@ -404,7 +494,9 @@ export default function InventoryPage() {
                         {item.category}
                       </span>
                     </div>
-                    <p className="mt-1 text-sm font-medium text-foreground-secondary">{item.description}</p>
+                    <p className="mt-1 text-sm font-medium text-foreground-secondary">
+                      {item.description}
+                    </p>
                     <p className="mt-2 text-sm font-bold text-foreground">
                       Rs. {item.price} - Stock {item.stock}
                     </p>

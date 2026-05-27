@@ -17,12 +17,25 @@ type LoginPayload = {
 
 type AuthResponse = {
   token: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    role: 'USER' | 'STORE_OWNER' | 'ADMIN';
-  };
+  user: AuthUserResponse;
+};
+
+export type AuthUserResponse = {
+  id: string;
+  name: string;
+  email: string;
+  role: 'USER' | 'STORE_OWNER' | 'ADMIN';
+  warningCount?: number;
+  emailNotificationsEnabled?: boolean;
+  preferences?: {
+    bookings: boolean;
+    promotions: boolean;
+    newStores: boolean;
+  } | null;
+  globalBlock?: {
+    reason: string;
+    createdAt: string;
+  } | null;
 };
 
 const authRouteByPath: Record<string, string> = {
@@ -64,12 +77,24 @@ export const getCurrentUser = async () => {
   return parseApiResponse(response, 'Unable to load current user', {
     url,
     method: 'GET',
-  }) as Promise<{
-    user: {
-      id: string;
-      name: string;
-      email: string;
-      role: 'USER' | 'STORE_OWNER' | 'ADMIN';
-    };
-  }>;
+  }) as Promise<{ user: AuthUserResponse }>;
+};
+
+export const updateEmailPreferences = async (payload: {
+  emailNotificationsEnabled: boolean;
+  bookings?: boolean;
+  promotions?: boolean;
+  newStores?: boolean;
+}) => {
+  const url = buildApiUrl(API_ROUTES.auth.emailPreferences);
+  const response = await apiFetch(url, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  return parseApiResponse(response, 'Unable to update email preferences', {
+    url,
+    method: 'PATCH',
+  }) as Promise<{ user: AuthUserResponse }>;
 };

@@ -13,7 +13,7 @@ import {
 } from '../services/booking.service.js';
 
 export const checkout = async (req: AuthenticatedRequest, res: Response) => {
-  const booking = await checkoutCart(req.user?.id ?? '', req.body.cartId);
+  const booking = await checkoutCart(req.user?.id ?? '', req.body.cartId, req.body.couponCode);
 
   res.status(201).json({ booking });
 };

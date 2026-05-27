@@ -1,8 +1,7 @@
 const DEFAULT_API_BASE_URL = 'http://localhost:5000/api';
 
 /** Strip whitespace and stray slashes from URL parts (prevents `/api%20/...`). */
-export const sanitizeUrlPart = (value: string): string =>
-  value.trim().replace(/\s+/g, '');
+export const sanitizeUrlPart = (value: string): string => value.trim().replace(/\s+/g, '');
 
 /**
  * Join a base URL with one or more path segments without duplicate or spaced slashes.

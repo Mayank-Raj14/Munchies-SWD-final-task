@@ -32,12 +32,14 @@ type FormState = {
   name: string;
   hostelId: string;
   roomNumber: string;
+  email: string;
 };
 
 const emptyForm: FormState = {
   name: '',
   hostelId: '',
   roomNumber: '',
+  email: '',
 };
 
 export default function StoreOwnerStoresPage() {
@@ -125,6 +127,7 @@ export default function StoreOwnerStoresPage() {
           name: form.name,
           hostelId: form.hostelId,
           roomNumber: form.roomNumber,
+          email: form.email || null,
         });
         setMessage('Store updated.');
       } else {
@@ -132,6 +135,7 @@ export default function StoreOwnerStoresPage() {
           name: form.name,
           hostelId: form.hostelId,
           roomNumber: form.roomNumber,
+          email: form.email || null,
         });
         setMessage('Store created.');
       }
@@ -151,6 +155,7 @@ export default function StoreOwnerStoresPage() {
       name: store.name,
       hostelId: store.hostel.id,
       roomNumber: store.roomNumber,
+      email: store.email ?? '',
     });
   };
 
@@ -228,6 +233,15 @@ export default function StoreOwnerStoresPage() {
                 value={form.roomNumber}
               />
             </label>
+            <label className="block">
+              <span className={labelClass}>Store reply email</span>
+              <input
+                className={fieldClass}
+                onChange={(event) => setForm({ ...form, email: event.target.value })}
+                type="email"
+                value={form.email}
+              />
+            </label>
           </div>
           <div className="mt-6 flex gap-3">
             <button className={primaryButtonClass} disabled={isSubmitting} type="submit">
@@ -282,6 +296,9 @@ export default function StoreOwnerStoresPage() {
                     <p className="mt-1 text-sm font-medium text-foreground-secondary">
                       {store.hostel.name} - Room {store.roomNumber}
                     </p>
+                    {store.email ? (
+                      <p className="mt-1 text-sm text-foreground-muted">{store.email}</p>
+                    ) : null}
                   </div>
                   <div className="flex gap-3">
                     <button

@@ -1,11 +1,17 @@
-import { buildApiUrl, getApiOrigin, resolveApiBaseUrl } from '@/lib/api-url';
+import { getApiOrigin, resolveApiBaseUrl } from '@/lib/api-url';
 import { clearAuthToken, getAuthToken } from './session';
 
 export const API_BASE_URL = resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL);
 
 export const API_ORIGIN = getApiOrigin(API_BASE_URL);
 
-export { buildApiUrl, buildAssetUrl, getApiOrigin, joinUrl, resolveApiBaseUrl } from '@/lib/api-url';
+export {
+  buildApiUrl,
+  buildAssetUrl,
+  getApiOrigin,
+  joinUrl,
+  resolveApiBaseUrl,
+} from '@/lib/api-url';
 export { API_ROUTES } from '@/lib/api-routes';
 
 export class ApiError extends Error {
@@ -39,12 +45,7 @@ export const authHeaders = (contentType: 'json' | 'form' = 'json') => {
 
 const isDev = process.env.NODE_ENV === 'development';
 
-const logApiFailure = (
-  response: Response,
-  requestUrl: string,
-  method: string,
-  body: unknown,
-) => {
+const logApiFailure = (response: Response, requestUrl: string, method: string, body: unknown) => {
   if (!isDev) {
     return;
   }
@@ -59,7 +60,8 @@ const logApiFailure = (
 };
 
 export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-  const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  const requestUrl =
+    typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
   const method = init?.method ?? 'GET';
 
   if (isDev && /\s|%20/i.test(requestUrl)) {

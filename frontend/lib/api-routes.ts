@@ -8,6 +8,7 @@ export const API_ROUTES = {
     register: '/auth/register',
     login: '/auth/login',
     me: '/auth/me',
+    emailPreferences: '/auth/me/email-preferences',
   },
   hostels: '/hostels',
   stores: {
@@ -32,10 +33,26 @@ export const API_ROUTES = {
     cancellationApprove: (bookingId: string) => `/bookings/${bookingId}/cancellation/approve`,
     cancellationReject: (bookingId: string) => `/bookings/${bookingId}/cancellation/reject`,
   },
+  campaigns: {
+    list: '/campaigns',
+    validate: '/campaigns/validate',
+    byId: (campaignId: string) => `/campaigns/${campaignId}`,
+    deactivate: (campaignId: string) => `/campaigns/${campaignId}/deactivate`,
+  },
+  analytics: {
+    me: '/analytics/users/me',
+    store: (storeId: string) => `/analytics/stores/${storeId}`,
+  },
   storeOwnershipRequests: {
     list: '/store-ownership-requests',
     adminList: '/admin/store-ownership-requests',
     adminApprove: (requestId: string) => `/admin/store-ownership-requests/${requestId}/approve`,
     adminReject: (requestId: string) => `/admin/store-ownership-requests/${requestId}/reject`,
+  },
+  governance: {
+    warnings: (userId: string) => `/admin/governance/users/${userId}/warnings`,
+    globalBlock: (userId: string) => `/admin/governance/users/${userId}/block`,
+    storeBlock: (storeId: string, userId: string) =>
+      `/governance/stores/${storeId}/users/${userId}/block`,
   },
 } as const;

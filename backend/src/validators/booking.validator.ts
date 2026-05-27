@@ -4,6 +4,7 @@ import { z } from 'zod';
 export const checkoutSchema = z.object({
   body: z.object({
     cartId: z.string().uuid('Invalid cart id'),
+    couponCode: z.string().trim().max(24).optional(),
   }),
 });
 

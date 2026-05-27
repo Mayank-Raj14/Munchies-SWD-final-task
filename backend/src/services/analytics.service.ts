@@ -2,6 +2,7 @@ import { BookingStatus, Prisma, Role } from '@prisma/client';
 
 import { prisma } from '../prisma/client.js';
 import { AppError } from '../utils/app-error.js';
+import { cacheKeys, getCached, invalidateCache } from '../utils/cache.js';
 
 type UserContext = {
   id: string;
@@ -11,9 +12,11 @@ type UserContext = {
 type AnalyticsDateRange = {
   dateFrom?: Date;
   dateTo?: Date;
+  lowStockThreshold?: number;
 };
 
 const LOW_STOCK_THRESHOLD = 5;
+const ANALYTICS_TTL_MS = 8_000;
 
 const startOfUtcWeek = (date: Date) => {
   const day = date.getUTCDay();
@@ -60,183 +63,210 @@ export const getStoreAnalytics = async (
   input: AnalyticsDateRange = {},
   now = new Date(),
 ) => {
-  await ensureStoreAnalyticsAccess(storeId, user);
-
-  const completedWhere = {
-    storeId,
-    status: BookingStatus.COMPLETED,
-    ...createdAtRange(input),
+  const normalizedInput = {
+    dateFrom: input.dateFrom?.toISOString(),
+    dateTo: input.dateTo?.toISOString(),
+    lowStockThreshold: input.lowStockThreshold ?? LOW_STOCK_THRESHOLD,
   };
+  const key = cacheKeys.storeAnalytics(storeId, user.id, normalizedInput);
 
-  const [totalRevenue, weeklyRevenue, monthlyRevenue, bookingStats, lowStockItems] =
-    await prisma.$transaction([
+  return getCached(key, ANALYTICS_TTL_MS, async () => {
+    await ensureStoreAnalyticsAccess(storeId, user);
+
+    const completedWhere = {
+      storeId,
+      status: BookingStatus.COMPLETED,
+      ...createdAtRange(input),
+    };
+    const lowStockThreshold = input.lowStockThreshold ?? LOW_STOCK_THRESHOLD;
+
+    const [totalRevenue, weeklyRevenue, monthlyRevenue, bookingStats, lowStockItems] =
+      await prisma.$transaction([
+        prisma.booking.aggregate({
+          where: completedWhere,
+          _sum: { totalAmount: true },
+        }),
+        prisma.booking.aggregate({
+          where: {
+            ...completedWhere,
+            createdAt: {
+              gte:
+                input.dateFrom && input.dateFrom > startOfUtcWeek(now)
+                  ? input.dateFrom
+                  : startOfUtcWeek(now),
+              ...(input.dateTo ? { lte: input.dateTo } : {}),
+            },
+          },
+          _sum: { totalAmount: true },
+        }),
+        prisma.booking.aggregate({
+          where: {
+            ...completedWhere,
+            createdAt: {
+              gte:
+                input.dateFrom && input.dateFrom > startOfUtcMonth(now)
+                  ? input.dateFrom
+                  : startOfUtcMonth(now),
+              ...(input.dateTo ? { lte: input.dateTo } : {}),
+            },
+          },
+          _sum: { totalAmount: true },
+        }),
+        prisma.booking.groupBy({
+          by: ['status'],
+          where: { storeId, ...createdAtRange(input) },
+          _count: { id: true },
+          orderBy: { status: 'asc' },
+        }),
+        prisma.item.findMany({
+          where: {
+            storeId,
+            isActive: true,
+            stock: { lte: lowStockThreshold },
+          },
+          select: {
+            id: true,
+            name: true,
+            stock: true,
+          },
+          orderBy: { stock: 'asc' },
+        }),
+      ]);
+
+    const soldItems = await prisma.bookingItem.groupBy({
+      by: ['itemId'],
+      where: {
+        booking: completedWhere,
+      },
+      _sum: {
+        quantity: true,
+      },
+      orderBy: {
+        _sum: {
+          quantity: 'desc',
+        },
+      },
+    });
+
+    const soldItemIds = soldItems.map((item) => item.itemId);
+    const items = soldItemIds.length
+      ? await prisma.item.findMany({
+          where: { id: { in: soldItemIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const itemById = new Map(items.map((item) => [item.id, item]));
+
+    const toSoldItem = (item?: (typeof soldItems)[number]) =>
+      item
+        ? {
+            item: itemById.get(item.itemId) ?? { id: item.itemId, name: 'Deleted item' },
+            quantity: item._sum.quantity ?? 0,
+          }
+        : null;
+
+    return {
+      revenue: {
+        total: decimalToNumber(totalRevenue._sum.totalAmount),
+        weekly: decimalToNumber(weeklyRevenue._sum.totalAmount),
+        monthly: decimalToNumber(monthlyRevenue._sum.totalAmount),
+      },
+      mostSoldItem: toSoldItem(soldItems[0]),
+      leastSoldItem: toSoldItem(soldItems.at(-1)),
+      bookingStatistics: bookingStats.reduce<Record<string, number>>((stats, stat) => {
+        const count = typeof stat._count === 'object' ? (stat._count.id ?? 0) : 0;
+        stats[stat.status] = count;
+        return stats;
+      }, {}),
+      lowStockThreshold,
+      lowStockItems,
+    };
+  });
+};
+
+export const getUserAnalytics = async (userId: string, input: AnalyticsDateRange = {}) => {
+  const normalizedInput = {
+    dateFrom: input.dateFrom?.toISOString(),
+    dateTo: input.dateTo?.toISOString(),
+  };
+  const key = cacheKeys.userAnalytics(userId, normalizedInput);
+
+  return getCached(key, ANALYTICS_TTL_MS, async () => {
+    const completedWhere = {
+      userId,
+      status: BookingStatus.COMPLETED,
+      ...createdAtRange(input),
+    };
+
+    const [spending, totalBookings, favoriteStores, bookings] = await prisma.$transaction([
       prisma.booking.aggregate({
         where: completedWhere,
         _sum: { totalAmount: true },
       }),
-      prisma.booking.aggregate({
-        where: {
-          ...completedWhere,
-          createdAt: {
-            gte:
-              input.dateFrom && input.dateFrom > startOfUtcWeek(now)
-                ? input.dateFrom
-                : startOfUtcWeek(now),
-            ...(input.dateTo ? { lte: input.dateTo } : {}),
-          },
-        },
-        _sum: { totalAmount: true },
-      }),
-      prisma.booking.aggregate({
-        where: {
-          ...completedWhere,
-          createdAt: {
-            gte:
-              input.dateFrom && input.dateFrom > startOfUtcMonth(now)
-                ? input.dateFrom
-                : startOfUtcMonth(now),
-            ...(input.dateTo ? { lte: input.dateTo } : {}),
-          },
-        },
-        _sum: { totalAmount: true },
-      }),
+      prisma.booking.count({ where: { userId, ...createdAtRange(input) } }),
       prisma.booking.groupBy({
-        by: ['status'],
-        where: { storeId, ...createdAtRange(input) },
-        _count: { id: true },
-        orderBy: { status: 'asc' },
+        by: ['storeId'],
+        where: completedWhere,
+        _count: { _all: true },
+        orderBy: { _count: { storeId: 'desc' } },
+        take: 1,
       }),
-      prisma.item.findMany({
-        where: {
-          storeId,
-          isAvailable: true,
-          stock: { lte: LOW_STOCK_THRESHOLD },
-        },
+      prisma.booking.findMany({
+        where: completedWhere,
         select: {
-          id: true,
-          name: true,
-          stock: true,
+          createdAt: true,
+          totalAmount: true,
         },
-        orderBy: { stock: 'asc' },
+        orderBy: { createdAt: 'asc' },
       }),
     ]);
 
-  const soldItems = await prisma.bookingItem.groupBy({
-    by: ['itemId'],
-    where: {
-      booking: completedWhere,
-    },
-    _sum: {
-      quantity: true,
-    },
-    orderBy: {
-      _sum: {
-        quantity: 'desc',
+    const favoriteItems = await prisma.bookingItem.groupBy({
+      by: ['itemId'],
+      where: {
+        booking: completedWhere,
       },
-    },
-  });
+      _sum: { quantity: true },
+      orderBy: { _sum: { quantity: 'desc' } },
+      take: 1,
+    });
 
-  const soldItemIds = soldItems.map((item) => item.itemId);
-  const items = soldItemIds.length
-    ? await prisma.item.findMany({
-        where: { id: { in: soldItemIds } },
-        select: { id: true, name: true },
-      })
-    : [];
-  const itemById = new Map(items.map((item) => [item.id, item]));
-
-  const toSoldItem = (item?: (typeof soldItems)[number]) =>
-    item
-      ? {
-          item: itemById.get(item.itemId) ?? { id: item.itemId, name: 'Deleted item' },
-          quantity: item._sum.quantity ?? 0,
-        }
+    const favoriteStore = favoriteStores[0]
+      ? await prisma.store.findUnique({
+          where: { id: favoriteStores[0].storeId },
+          select: { id: true, name: true },
+        })
       : null;
 
-  return {
-    revenue: {
-      total: decimalToNumber(totalRevenue._sum.totalAmount),
-      weekly: decimalToNumber(weeklyRevenue._sum.totalAmount),
-      monthly: decimalToNumber(monthlyRevenue._sum.totalAmount),
-    },
-    mostSoldItem: toSoldItem(soldItems[0]),
-    leastSoldItem: toSoldItem(soldItems.at(-1)),
-    bookingStatistics: bookingStats.reduce<Record<string, number>>((stats, stat) => {
-      const count = typeof stat._count === 'object' ? (stat._count.id ?? 0) : 0;
-      stats[stat.status] = count;
-      return stats;
-    }, {}),
-    lowStockItems,
-  };
+    const favoriteItem = favoriteItems[0]
+      ? await prisma.item.findUnique({
+          where: { id: favoriteItems[0].itemId },
+          select: { id: true, name: true },
+        })
+      : null;
+
+    const monthlySpending = bookings.reduce<Record<string, number>>((months, booking) => {
+      const monthKey = `${booking.createdAt.getUTCFullYear()}-${String(
+        booking.createdAt.getUTCMonth() + 1,
+      ).padStart(2, '0')}`;
+      months[monthKey] = (months[monthKey] ?? 0) + decimalToNumber(booking.totalAmount);
+      return months;
+    }, {});
+
+    return {
+      totalSpending: decimalToNumber(spending._sum.totalAmount),
+      totalBookings,
+      favoriteStore,
+      favoriteItem,
+      monthlySpending,
+    };
+  });
 };
 
-export const getUserAnalytics = async (userId: string, input: AnalyticsDateRange = {}) => {
-  const completedWhere = {
-    userId,
-    status: BookingStatus.COMPLETED,
-    ...createdAtRange(input),
-  };
-
-  const [spending, totalBookings, favoriteStores, bookings] = await prisma.$transaction([
-    prisma.booking.aggregate({
-      where: completedWhere,
-      _sum: { totalAmount: true },
-    }),
-    prisma.booking.count({ where: { userId, ...createdAtRange(input) } }),
-    prisma.booking.groupBy({
-      by: ['storeId'],
-      where: completedWhere,
-      _count: { _all: true },
-      orderBy: { _count: { storeId: 'desc' } },
-      take: 1,
-    }),
-    prisma.booking.findMany({
-      where: completedWhere,
-      select: {
-        createdAt: true,
-        totalAmount: true,
-      },
-      orderBy: { createdAt: 'asc' },
-    }),
+export const invalidateAnalyticsCaches = (storeId?: string, userId?: string) => {
+  invalidateCache([
+    'analytics:',
+    ...(storeId ? [`analytics:store:${storeId}:`] : []),
+    ...(userId ? [`analytics:user:${userId}:`] : []),
   ]);
-
-  const favoriteItems = await prisma.bookingItem.groupBy({
-    by: ['itemId'],
-    where: {
-      booking: completedWhere,
-    },
-    _sum: { quantity: true },
-    orderBy: { _sum: { quantity: 'desc' } },
-    take: 1,
-  });
-
-  const favoriteStore = favoriteStores[0]
-    ? await prisma.store.findUnique({
-        where: { id: favoriteStores[0].storeId },
-        select: { id: true, name: true },
-      })
-    : null;
-
-  const favoriteItem = favoriteItems[0]
-    ? await prisma.item.findUnique({
-        where: { id: favoriteItems[0].itemId },
-        select: { id: true, name: true },
-      })
-    : null;
-
-  const monthlySpending = bookings.reduce<Record<string, number>>((months, booking) => {
-    const key = `${booking.createdAt.getUTCFullYear()}-${String(
-      booking.createdAt.getUTCMonth() + 1,
-    ).padStart(2, '0')}`;
-    months[key] = (months[key] ?? 0) + decimalToNumber(booking.totalAmount);
-    return months;
-  }, {});
-
-  return {
-    totalSpending: decimalToNumber(spending._sum.totalAmount),
-    totalBookings,
-    favoriteStore,
-    favoriteItem,
-    monthlySpending,
-  };
 };

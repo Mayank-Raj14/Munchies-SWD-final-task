@@ -5,18 +5,24 @@ import Link from 'next/link';
 import {
   ArrowRight,
   ChevronDown,
-  MapPin,
+  Filter,
+  PackageSearch,
   Search,
   ShoppingCart,
+  SlidersHorizontal,
   Store as StoreIcon,
+  X,
 } from 'lucide-react';
 
 import {
   EmptyState,
   MarketSurface,
   Notice,
+  SelectShell,
+  badgeClass,
   primaryButtonClass,
   secondaryButtonClass,
+  selectClass,
 } from '@/components/marketplace-ui';
 import { StoreCard } from '@/components/store-card';
 import { useAuth } from '@/contexts/auth-context';
@@ -26,40 +32,105 @@ import { getStores } from '@/services/stores';
 import type { Hostel } from '@/types/hostel';
 import type { Store, StoreListResponse } from '@/types/store';
 
+type SortMode = 'newest' | 'popular' | 'items';
+
+type Filters = {
+  hostelId: string;
+  diet: 'all' | 'veg' | 'nonveg';
+  category: string;
+  rating: string;
+  availability: boolean;
+  openOnly: boolean;
+  deliveryTime: string;
+  popularity: string;
+  priceMin: string;
+  priceMax: string;
+  filterSearch: string;
+  sort: SortMode;
+};
+
+const defaultFilters: Filters = {
+  hostelId: '',
+  diet: 'all',
+  category: '',
+  rating: '',
+  availability: false,
+  openOnly: false,
+  deliveryTime: '',
+  popularity: '',
+  priceMin: '',
+  priceMax: '',
+  filterSearch: '',
+  sort: 'newest',
+};
+
+const filterSections = ['Hostel', 'Food', 'Price', 'Store', 'Ratings'] as const;
+const pricePresets = [
+  { label: 'Under Rs 50', min: '', max: '50' },
+  { label: 'Under Rs 100', min: '', max: '100' },
+  { label: 'Rs 100-300', min: '100', max: '300' },
+  { label: 'Premium', min: '300', max: '' },
+];
+
+const parsePrice = (value: string | number | undefined) => {
+  const price = Number(value ?? 0);
+  return Number.isFinite(price) ? price : 0;
+};
+
+const formatStoreAge = (createdAt: string) => {
+  const created = new Date(createdAt);
+  if (!Number.isFinite(created.getTime())) {
+    return 'Recently added';
+  }
+
+  return `Added ${created.toISOString().slice(0, 10)}`;
+};
+
+const normalizePriceInput = (value: string) => value.replace(/[^\d]/g, '').slice(0, 5);
+
+const getPriceRange = (filters: Filters) => {
+  const min = filters.priceMin === '' ? null : Number(filters.priceMin);
+  const max = filters.priceMax === '' ? null : Number(filters.priceMax);
+
+  return {
+    min: Number.isFinite(min) ? min : null,
+    max: Number.isFinite(max) ? max : null,
+    isInvalid: min !== null && max !== null && min > max,
+  };
+};
+
 export function StoreDirectory() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const [stores, setStores] = useState<Store[]>([]);
   const [pagination, setPagination] = useState<StoreListResponse['pagination'] | null>(null);
   const [search, setSearch] = useState('');
-  const [activeHostelId, setActiveHostelId] = useState<string | null>(null);
+  const [submittedSearch, setSubmittedSearch] = useState('');
+  const [filters, setFilters] = useState<Filters>(defaultFilters);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    Hostel: true,
+    Food: true,
+    Price: true,
+    Store: true,
+    Ratings: true,
+  });
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [hostels, setHostels] = useState<Hostel[]>([]);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  const activeHostel = useMemo(
-    () => hostels.find((hostel) => hostel.id === activeHostelId) ?? null,
-    [activeHostelId, hostels],
-  );
-
   const loadStores = useCallback(
-    async (
-      nextSearch = '',
-      page = 1,
-      options: { silent?: boolean; hostelId?: string | null } = {},
-    ) => {
+    async (nextSearch = submittedSearch, page = 1, options: { silent?: boolean } = {}) => {
       if (!options.silent) {
         setIsLoading(true);
       }
       setMessage('');
 
-      const hostelId =
-        options.hostelId === undefined ? activeHostelId ?? undefined : options.hostelId ?? undefined;
-
       try {
         const data = await getStores({
           search: nextSearch.trim() || undefined,
           page,
-          hostelId: hostelId ?? undefined,
+          hostelId: filters.hostelId || undefined,
+          limit: 50,
         });
         setStores(data.stores);
         setPagination(data.pagination);
@@ -71,77 +142,401 @@ export function StoreDirectory() {
         }
       }
     },
-    [activeHostelId],
+    [filters.hostelId, submittedSearch],
   );
 
   useEffect(() => {
-    void loadStores('', 1);
-  }, [loadStores]);
+    void loadStores(submittedSearch, 1);
+  }, [loadStores, submittedSearch]);
 
   useEffect(() => {
     void getHostels()
       .then((data) => setHostels(data.hostels))
       .catch(() => {
-        // Hostel filters are optional.
+        setHostels([]);
       });
   }, []);
 
   useSyncedRefresh(['stores', 'inventory', 'ownership'], () =>
-    loadStores(search, pagination?.page ?? 1, { silent: true }),
+    loadStores(submittedSearch, pagination?.page ?? 1, { silent: true }),
   );
 
-  const handleSearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setActiveHostelId(null);
-    void loadStores(search, 1, { hostelId: null });
-  };
+  const categories = useMemo(() => {
+    const values = new Set<string>();
+    stores.forEach((store) => store.items?.forEach((item) => values.add(item.category)));
+    return Array.from(values).sort((a, b) => a.localeCompare(b));
+  }, [stores]);
 
-  const handleHostelFilter = (hostel: Hostel | null) => {
-    if (!hostel) {
-      setActiveHostelId(null);
-      setSearch('');
-      void loadStores('', 1, { hostelId: null });
-      return;
+  const visibleStores = useMemo(() => {
+    const filterTerm = filters.filterSearch.trim().toLowerCase();
+    const priceRange = getPriceRange(filters);
+
+    if (priceRange.isInvalid) {
+      return [];
     }
 
-    setActiveHostelId(hostel.id);
-    setSearch('');
-    void loadStores('', 1, { hostelId: hostel.id });
+    const nextStores = stores.filter((store) => {
+      const items = store.items ?? [];
+      const availableItems = items.filter((item) => item.isAvailable && item.stock > 0);
+      const itemPrices = items.map((item) => parsePrice(item.price));
+      const haystack = [store.name, store.roomNumber, store.hostel.name, store.owner.name]
+        .join(' ')
+        .toLowerCase();
+
+      if (filterTerm && !haystack.includes(filterTerm)) return false;
+      if (filters.availability && availableItems.length === 0) return false;
+      if (filters.category && !items.some((item) => item.category === filters.category))
+        return false;
+      if (
+        (priceRange.min !== null || priceRange.max !== null) &&
+        !itemPrices.some((price) => {
+          if (priceRange.min !== null && price < priceRange.min) return false;
+          if (priceRange.max !== null && price > priceRange.max) return false;
+          return true;
+        })
+      ) {
+        return false;
+      }
+      if (filters.popularity === 'popular' && (store._count?.bookings ?? 0) === 0) return false;
+
+      return true;
+    });
+
+    return nextStores.sort((a, b) => {
+      if (filters.sort === 'popular') {
+        return (b._count?.bookings ?? 0) - (a._count?.bookings ?? 0);
+      }
+      if (filters.sort === 'items') {
+        return (b._count?.items ?? 0) - (a._count?.items ?? 0);
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [filters, stores]);
+
+  const activeChips = useMemo(() => {
+    const chips: { key: keyof Filters | 'search'; label: string }[] = [];
+    const hostel = hostels.find((item) => item.id === filters.hostelId);
+    const priceRange = getPriceRange(filters);
+    if (submittedSearch) chips.push({ key: 'search', label: submittedSearch });
+    if (hostel) chips.push({ key: 'hostelId', label: hostel.name });
+    if (filters.availability) chips.push({ key: 'availability', label: 'Available now' });
+    if (filters.category) chips.push({ key: 'category', label: filters.category });
+    if (priceRange.min !== null || priceRange.max !== null) {
+      chips.push({
+        key: 'priceMax',
+        label:
+          priceRange.min !== null && priceRange.max !== null
+            ? `Rs ${priceRange.min}-${priceRange.max}`
+            : priceRange.min !== null
+              ? `From Rs ${priceRange.min}`
+              : `Under Rs ${priceRange.max}`,
+      });
+    }
+    if (filters.popularity) chips.push({ key: 'popularity', label: 'Popular' });
+    return chips;
+  }, [filters, hostels, submittedSearch]);
+
+  const priceRange = getPriceRange(filters);
+
+  const updateFilter = <Key extends keyof Filters>(key: Key, value: Filters[Key]) => {
+    setFilters((current) => ({ ...current, [key]: value }));
+  };
+
+  const updatePriceFilter = (key: 'priceMin' | 'priceMax', value: string) => {
+    updateFilter(key, normalizePriceInput(value));
+  };
+
+  const applyPricePreset = (preset: (typeof pricePresets)[number]) => {
+    setFilters((current) => ({
+      ...current,
+      priceMin: preset.min,
+      priceMax: preset.max,
+    }));
   };
 
   const clearFilters = () => {
-    setActiveHostelId(null);
     setSearch('');
-    void loadStores('', 1, { hostelId: null });
+    setSubmittedSearch('');
+    setFilters(defaultFilters);
   };
+
+  const removeChip = (key: keyof Filters | 'search') => {
+    if (key === 'search') {
+      setSearch('');
+      setSubmittedSearch('');
+      return;
+    }
+    if (key === 'priceMax') {
+      setFilters((current) => ({ ...current, priceMin: '', priceMax: '' }));
+      return;
+    }
+    setFilters((current) => ({ ...current, [key]: defaultFilters[key] }));
+  };
+
+  const handleSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmittedSearch(search.trim());
+    void loadStores(search, 1);
+  };
+
+  const FilterContent = (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
+        <div>
+          <p className="text-xs font-medium uppercase text-foreground-faint">Marketplace</p>
+          <h2 className="text-base font-semibold text-foreground">Filters</h2>
+        </div>
+        <button className={secondaryButtonClass} onClick={clearFilters} type="button">
+          Clear all
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        <label className="mb-4 flex h-10 items-center gap-2 rounded-xl border border-border bg-canvas px-3">
+          <Search className="h-4 w-4 text-foreground-muted" aria-hidden="true" />
+          <span className="sr-only">Search filters</span>
+          <input
+            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-foreground-muted"
+            onChange={(event) => updateFilter('filterSearch', event.target.value)}
+            placeholder="Search within results"
+            value={filters.filterSearch}
+          />
+        </label>
+
+        <div className="divide-y divide-border-subtle">
+          {filterSections.map((section) => (
+            <section className="py-3" key={section}>
+              <button
+                className="flex w-full items-center justify-between text-sm font-semibold text-foreground"
+                onClick={() =>
+                  setOpenSections((current) => ({ ...current, [section]: !current[section] }))
+                }
+                type="button"
+              >
+                {section}
+                <ChevronDown
+                  className={`h-4 w-4 text-foreground-muted transition-transform duration-ui ${
+                    openSections[section] ? 'rotate-180' : ''
+                  }`}
+                  aria-hidden="true"
+                />
+              </button>
+
+              {openSections[section] ? (
+                <div className="mt-3 space-y-3">
+                  {section === 'Hostel' ? (
+                    <SelectShell>
+                      <select
+                        className={selectClass}
+                        onChange={(event) => updateFilter('hostelId', event.target.value)}
+                        value={filters.hostelId}
+                      >
+                        <option value="">All hostels</option>
+                        {hostels.map((hostel) => (
+                          <option key={hostel.id} value={hostel.id}>
+                            {hostel.name}
+                          </option>
+                        ))}
+                      </select>
+                    </SelectShell>
+                  ) : null}
+
+                  {section === 'Food' ? (
+                    <>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[
+                          ['all', 'All'],
+                          ['veg', 'Veg'],
+                          ['nonveg', 'Non-veg'],
+                        ].map(([value, label]) => (
+                          <button
+                            className={`h-8 rounded-lg border text-xs font-semibold transition-colors duration-ui ${
+                              filters.diet === value
+                                ? 'border-accent bg-accent text-accent-contrast'
+                                : 'border-border bg-surface-raised text-foreground-secondary hover:border-border-strong'
+                            }`}
+                            key={value}
+                            onClick={() => updateFilter('diet', value as Filters['diet'])}
+                            type="button"
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <SelectShell>
+                        <select
+                          className={selectClass}
+                          onChange={(event) => updateFilter('category', event.target.value)}
+                          value={filters.category}
+                        >
+                          <option value="">All categories</option>
+                          {categories.map((category) => (
+                            <option key={category} value={category}>
+                              {category}
+                            </option>
+                          ))}
+                        </select>
+                      </SelectShell>
+                    </>
+                  ) : null}
+
+                  {section === 'Price' ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <label>
+                          <span className="text-xs font-medium text-foreground-muted">Min</span>
+                          <input
+                            className={`mt-1 h-10 w-full rounded-lg border bg-canvas px-3 text-sm text-foreground outline-none transition-all duration-ui placeholder:text-foreground-muted focus:border-accent/40 focus:ring-2 focus:ring-accent/15 ${
+                              priceRange.isInvalid ? 'border-red-500/40' : 'border-border'
+                            }`}
+                            inputMode="numeric"
+                            min={0}
+                            onChange={(event) => updatePriceFilter('priceMin', event.target.value)}
+                            placeholder="20"
+                            type="number"
+                            value={filters.priceMin}
+                          />
+                        </label>
+                        <label>
+                          <span className="text-xs font-medium text-foreground-muted">Max</span>
+                          <input
+                            className={`mt-1 h-10 w-full rounded-lg border bg-canvas px-3 text-sm text-foreground outline-none transition-all duration-ui placeholder:text-foreground-muted focus:border-accent/40 focus:ring-2 focus:ring-accent/15 ${
+                              priceRange.isInvalid ? 'border-red-500/40' : 'border-border'
+                            }`}
+                            inputMode="numeric"
+                            min={0}
+                            onChange={(event) => updatePriceFilter('priceMax', event.target.value)}
+                            placeholder="500"
+                            type="number"
+                            value={filters.priceMax}
+                          />
+                        </label>
+                      </div>
+                      {priceRange.isInvalid ? (
+                        <p className="text-xs font-medium text-red-300">
+                          Min price must be lower than max price.
+                        </p>
+                      ) : null}
+                      <div className="flex flex-wrap gap-1.5">
+                        {pricePresets.map((preset) => {
+                          const isActive =
+                            filters.priceMin === preset.min && filters.priceMax === preset.max;
+
+                          return (
+                            <button
+                              className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors duration-ui ${
+                                isActive
+                                  ? 'border-accent bg-accent text-accent-contrast'
+                                  : 'border-border bg-surface-raised text-foreground-secondary hover:border-border-strong hover:text-foreground'
+                              }`}
+                              key={preset.label}
+                              onClick={() => applyPricePreset(preset)}
+                              type="button"
+                            >
+                              {preset.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {section === 'Store' ? (
+                    <>
+                      <label className="flex items-center justify-between rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-foreground-secondary">
+                        Open now
+                        <input
+                          checked={filters.openOnly}
+                          className="h-4 w-4 accent-[var(--accent)]"
+                          onChange={(event) => updateFilter('openOnly', event.target.checked)}
+                          type="checkbox"
+                        />
+                      </label>
+                      <label className="flex items-center justify-between rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-foreground-secondary">
+                        Available items
+                        <input
+                          checked={filters.availability}
+                          className="h-4 w-4 accent-[var(--accent)]"
+                          onChange={(event) => updateFilter('availability', event.target.checked)}
+                          type="checkbox"
+                        />
+                      </label>
+                      <SelectShell>
+                        <select
+                          className={selectClass}
+                          onChange={(event) => updateFilter('deliveryTime', event.target.value)}
+                          value={filters.deliveryTime}
+                        >
+                          <option value="">Any pickup time</option>
+                          <option value="10">Within 10 minutes</option>
+                          <option value="20">Within 20 minutes</option>
+                          <option value="30">Within 30 minutes</option>
+                        </select>
+                      </SelectShell>
+                    </>
+                  ) : null}
+
+                  {section === 'Ratings' ? (
+                    <>
+                      <SelectShell>
+                        <select
+                          className={selectClass}
+                          onChange={(event) => updateFilter('rating', event.target.value)}
+                          value={filters.rating}
+                        >
+                          <option value="">Any rating</option>
+                          <option value="4">4 stars and above</option>
+                          <option value="3">3 stars and above</option>
+                        </select>
+                      </SelectShell>
+                      <button
+                        className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors duration-ui ${
+                          filters.popularity === 'popular'
+                            ? 'border-accent bg-accent-muted text-accent'
+                            : 'border-border bg-surface-raised text-foreground-secondary hover:border-border-strong'
+                        }`}
+                        onClick={() =>
+                          updateFilter(
+                            'popularity',
+                            filters.popularity === 'popular' ? '' : 'popular',
+                          )
+                        }
+                        type="button"
+                      >
+                        Popular stores first
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex min-h-screen flex-col pb-24 lg:pb-8">
-      {/* Blinkit / Zomato-style sticky browse header — single search */}
       <div className="sticky top-0 z-30 border-b border-border-subtle bg-canvas/95 shadow-header backdrop-blur-md">
-        <div className="mx-auto w-full max-w-content-wide px-4 pt-3 sm:px-5 lg:px-7">
+        <div className="mx-auto w-full max-w-content-wide px-4 py-3 sm:px-5 lg:px-7">
           <div className="flex items-center justify-between gap-3">
-            <Link href="/" className="flex min-w-0 items-center gap-2.5 lg:hidden">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-sm font-bold text-accent-contrast">
-                M
-              </span>
-              <div className="min-w-0">
-                <p className="text-[10px] font-medium uppercase tracking-wider text-foreground-faint">
-                  Deliver to
-                </p>
-                <p className="flex items-center gap-0.5 truncate text-sm font-semibold text-foreground">
-                  Campus hostels
-                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-foreground-muted" aria-hidden="true" />
-                </p>
-              </div>
-            </Link>
-
-            <div className="hidden min-w-0 lg:block">
+            <div className="min-w-0">
               <p className="text-xs text-foreground-muted">Order from student stores on campus</p>
-              <h1 className="text-lg font-semibold tracking-tight text-foreground">Stores near you</h1>
+              <h1 className="text-lg font-semibold tracking-tight text-foreground">
+                Stores near you
+              </h1>
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
+              <button
+                className={`${secondaryButtonClass} lg:hidden`}
+                onClick={() => setDrawerOpen(true)}
+                type="button"
+              >
+                <Filter className="h-4 w-4" aria-hidden="true" />
+                Filters
+              </button>
               {isAuthLoading ? (
                 <div className="h-9 w-9 animate-pulse rounded-full bg-surface-raised" />
               ) : user ? (
@@ -153,10 +548,7 @@ export function StoreDirectory() {
                   {user.name.charAt(0).toUpperCase()}
                 </Link>
               ) : (
-                <Link
-                  href="/login"
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground-secondary hover:bg-surface-hover"
-                >
+                <Link className={secondaryButtonClass} href="/login">
                   Sign in
                 </Link>
               )}
@@ -176,154 +568,143 @@ export function StoreDirectory() {
               <span className="sr-only">Search stores</span>
               <input
                 className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-foreground-muted"
-                onChange={(event) => {
-                  setSearch(event.target.value);
-                  if (activeHostelId) {
-                    setActiveHostelId(null);
-                  }
-                }}
-                placeholder="Search stores, hostels, rooms…"
-                suppressHydrationWarning
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search stores, hostels, rooms..."
                 value={search}
               />
             </label>
           </form>
-
-          {hostels.length > 0 ? (
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <button
-                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-ui ${
-                  !activeHostelId
-                    ? 'border-accent bg-accent text-accent-contrast'
-                    : 'border-border bg-surface text-foreground-secondary hover:border-border-strong'
-                }`}
-                onClick={() => handleHostelFilter(null)}
-                type="button"
-              >
-                All
-              </button>
-              {hostels.map((hostel) => (
-                <button
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-ui ${
-                    activeHostelId === hostel.id
-                      ? 'border-accent bg-accent text-accent-contrast'
-                      : 'border-border bg-surface text-foreground-secondary hover:border-border-strong'
-                  }`}
-                  key={hostel.id}
-                  onClick={() => handleHostelFilter(hostel)}
-                  type="button"
-                >
-                  <MapPin className="h-3 w-3" aria-hidden="true" />
-                  {hostel.name}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="pb-3" />
-          )}
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-content-wide flex-1 px-4 sm:px-5 lg:px-7">
-        {message ? (
-          <div className="mt-4">
-            <Notice tone="warning">{message}</Notice>
-          </div>
-        ) : null}
+      <div className="mx-auto grid w-full max-w-content-wide flex-1 gap-5 px-4 pt-5 sm:px-5 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-7">
+        <aside className="sticky top-[7.25rem] hidden h-[calc(100vh-8rem)] overflow-hidden rounded-2xl border border-border bg-surface shadow-card lg:block">
+          {FilterContent}
+        </aside>
 
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold text-foreground sm:text-lg">
-              {activeHostel ? activeHostel.name : search ? 'Search results' : 'All stores'}
-            </h2>
-            <p className="mt-0.5 text-xs text-foreground-muted sm:text-sm">
-              {pagination?.total != null
-                ? `${pagination.total} ${pagination.total === 1 ? 'store' : 'stores'} available`
-                : 'Loading campus stores…'}
-            </p>
-          </div>
-          {(search || activeHostelId) && (
-            <button className={secondaryButtonClass} onClick={clearFilters} type="button">
-              Clear
-            </button>
-          )}
-        </div>
-
-        {isLoading ? (
-          <div className="mt-4 space-y-3">
-            {[0, 1, 2, 3, 4].map((item) => (
-              <div
-                key={item}
-                className="h-[5.5rem] animate-pulse rounded-2xl border border-border bg-surface"
-              />
-            ))}
-          </div>
-        ) : stores.length === 0 ? (
-          <div className="mt-6">
-            <EmptyState
-              action={
-                search || activeHostelId ? (
-                  <button className={secondaryButtonClass} onClick={clearFilters} type="button">
-                    Clear filters
-                  </button>
-                ) : (
-                  <Link className={primaryButtonClass} href="/store-owner-request">
-                    Open a store
-                    <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-                  </Link>
-                )
-              }
-              description={
-                search || activeHostelId
-                  ? 'Try another hostel or store name.'
-                  : 'Stores appear here once sellers are approved.'
-              }
-              icon={StoreIcon}
-              title={search || activeHostelId ? 'No matches' : 'No stores yet'}
-            />
-          </div>
-        ) : (
-          <>
-            <div className="mt-4 space-y-3 lg:hidden">
-              {stores.map((store) => (
-                <StoreCard key={store.id} store={store} variant="list" />
-              ))}
+        <main className="min-w-0">
+          {message ? (
+            <div className="mb-4">
+              <Notice tone="warning">{message}</Notice>
             </div>
+          ) : null}
 
-            <div className="mt-4 hidden gap-4 lg:grid lg:grid-cols-2 xl:grid-cols-3">
-              {stores.map((store) => (
-                <StoreCard key={store.id} store={store} variant="grid" />
-              ))}
+          <MarketSurface className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="h-4 w-4 text-accent" aria-hidden="true" />
+                <h2 className="text-base font-semibold text-foreground">
+                  {submittedSearch ? 'Search results' : 'All stores'}
+                </h2>
+              </div>
+              <p className="mt-1 text-xs text-foreground-muted">
+                {isLoading
+                  ? 'Loading campus stores...'
+                  : `${visibleStores.length} of ${pagination?.total ?? stores.length} stores shown`}
+              </p>
             </div>
-          </>
-        )}
-
-        {pagination && pagination.totalPages > 1 ? (
-          <MarketSurface className="mt-5 flex items-center justify-between gap-3 px-3.5 py-2.5 text-xs text-foreground-secondary">
-            <span className="tabular-nums">
-              Page {pagination.page} of {pagination.totalPages}
-            </span>
-            <div className="flex gap-1.5">
-              <button
-                className={secondaryButtonClass}
-                disabled={pagination.page <= 1}
-                onClick={() => void loadStores(search, pagination.page - 1)}
-                type="button"
-              >
-                Previous
-              </button>
-              <button
-                className={secondaryButtonClass}
-                disabled={pagination.page >= pagination.totalPages}
-                onClick={() => void loadStores(search, pagination.page + 1)}
-                type="button"
-              >
-                Next
-              </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <SelectShell>
+                <select
+                  className={`${selectClass} mt-0 h-9 py-0 text-xs`}
+                  onChange={(event) => updateFilter('sort', event.target.value as SortMode)}
+                  value={filters.sort}
+                >
+                  <option value="newest">Newest</option>
+                  <option value="popular">Popularity</option>
+                  <option value="items">Most items</option>
+                </select>
+              </SelectShell>
             </div>
           </MarketSurface>
-        ) : null}
+
+          {activeChips.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {activeChips.map((chip) => (
+                <button
+                  className={`${badgeClass} hover:border-border-strong hover:bg-surface-hover`}
+                  key={`${chip.key}-${chip.label}`}
+                  onClick={() => removeChip(chip.key)}
+                  type="button"
+                >
+                  {chip.label}
+                  <X className="h-3 w-3" aria-hidden="true" />
+                </button>
+              ))}
+              <button className={secondaryButtonClass} onClick={clearFilters} type="button">
+                Clear all
+              </button>
+            </div>
+          ) : null}
+
+          {isLoading ? (
+            <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+              {[0, 1, 2, 3, 4, 5].map((item) => (
+                <div
+                  key={item}
+                  className="h-56 animate-pulse rounded-2xl border border-border bg-surface"
+                />
+              ))}
+            </div>
+          ) : visibleStores.length === 0 ? (
+            <div className="mt-6">
+              <EmptyState
+                action={
+                  activeChips.length > 0 ? (
+                    <button className={secondaryButtonClass} onClick={clearFilters} type="button">
+                      Clear filters
+                    </button>
+                  ) : (
+                    <Link className={primaryButtonClass} href="/store-owner-request">
+                      Open a store
+                      <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                    </Link>
+                  )
+                }
+                description={
+                  activeChips.length > 0
+                    ? 'Try widening the price, hostel, or availability filters.'
+                    : 'Approved sellers appear here as soon as their store is created.'
+                }
+                icon={activeChips.length > 0 ? PackageSearch : StoreIcon}
+                title={activeChips.length > 0 ? 'No matching stores' : 'No stores yet'}
+              />
+            </div>
+          ) : (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {visibleStores.map((store) => (
+                <div key={store.id} className="space-y-2">
+                  <StoreCard store={store} variant="grid" />
+                  <p className="px-1 text-[11px] text-foreground-faint">
+                    {formatStoreAge(store.createdAt)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </main>
       </div>
+
+      {drawerOpen ? (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            aria-label="Close filters"
+            className="absolute inset-0 bg-black/55"
+            onClick={() => setDrawerOpen(false)}
+            type="button"
+          />
+          <div className="absolute inset-y-0 left-0 w-[min(88vw,360px)] border-r border-border bg-surface shadow-card">
+            <button
+              className="absolute right-3 top-3 z-10 rounded-lg border border-border bg-surface-raised p-2 text-foreground-secondary"
+              onClick={() => setDrawerOpen(false)}
+              type="button"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+            {FilterContent}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

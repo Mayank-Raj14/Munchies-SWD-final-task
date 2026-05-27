@@ -14,7 +14,7 @@ const swatches: Record<ThemeId, string> = {
 };
 
 export function ThemeSettings({ compact = false }: { compact?: boolean }) {
-  const { theme, setTheme } = useTheme();
+  const { theme, isHydrated, setTheme } = useTheme();
 
   return (
     <div className={compact ? 'space-y-2' : 'space-y-3'}>
@@ -25,7 +25,7 @@ export function ThemeSettings({ compact = false }: { compact?: boolean }) {
       ) : null}
       <div className="grid grid-cols-5 gap-1.5 px-1">
         {themes.map((item) => {
-          const active = theme === item.id;
+          const active = isHydrated && theme === item.id;
 
           return (
             <button
@@ -39,9 +39,7 @@ export function ThemeSettings({ compact = false }: { compact?: boolean }) {
               title={item.label}
               type="button"
             >
-              <span
-                className={`h-5 w-5 rounded-md ring-1 ring-inset ${swatches[item.id]}`}
-              />
+              <span className={`h-5 w-5 rounded-md ring-1 ring-inset ${swatches[item.id]}`} />
               {active ? (
                 <span className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-accent text-canvas">
                   <Check className="h-2 w-2" strokeWidth={3} aria-hidden="true" />
@@ -52,7 +50,7 @@ export function ThemeSettings({ compact = false }: { compact?: boolean }) {
         })}
       </div>
       <p className="px-2 text-center text-[10px] text-foreground-muted">
-        {themes.find((item) => item.id === theme)?.label}
+        {isHydrated ? themes.find((item) => item.id === theme)?.label : 'Appearance'}
       </p>
     </div>
   );

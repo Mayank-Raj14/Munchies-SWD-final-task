@@ -3,7 +3,11 @@ import { BookingStatus, Prisma, Role } from '@prisma/client';
 import { prisma } from '../prisma/client.js';
 import { AppError } from '../utils/app-error.js';
 import { buildPaginationMeta, getPagination } from '../utils/pagination.js';
+import { invalidateCache } from '../utils/cache.js';
+import { invalidateAnalyticsCaches } from './analytics.service.js';
+import { claimCouponUsage, validateCouponForStore } from './campaign.service.js';
 import { assertUserCanUseStore } from './governance.service.js';
+import { buildEmailHtml, getStoreSender, sendUserEmail } from './email.service.js';
 
 const BOOKING_EXPIRY_HOURS = 24;
 
@@ -49,6 +53,13 @@ type UserContext = {
   role: Role;
 };
 
+type BookingNotificationTarget = {
+  id: string;
+  userId: string;
+  storeId: string;
+  status: BookingStatus;
+};
+
 type BookingListInput = {
   scope?: 'store' | 'personal';
   page: number;
@@ -61,7 +72,11 @@ type BookingListInput = {
   dateTo?: Date;
 };
 
-const cancellableStatuses = [BookingStatus.PENDING, BookingStatus.CONFIRMED] as const;
+const cancellableStatuses = [
+  BookingStatus.PENDING,
+  BookingStatus.CONFIRMED,
+  BookingStatus.READY,
+] as const;
 
 const canRequestCancellation = (status: BookingStatus) => {
   return cancellableStatuses.includes(status as (typeof cancellableStatuses)[number]);
@@ -69,10 +84,33 @@ const canRequestCancellation = (status: BookingStatus) => {
 
 const assertStatusTransition = (currentStatus: BookingStatus, nextStatus: BookingStatus) => {
   const allowedTransitions: Record<BookingStatus, BookingStatus[]> = {
-    [BookingStatus.PENDING]: [BookingStatus.CONFIRMED, BookingStatus.CANCELLED],
-    [BookingStatus.CONFIRMED]: [BookingStatus.COMPLETED, BookingStatus.CANCELLED],
+    [BookingStatus.PENDING]: [
+      BookingStatus.CONFIRMED,
+      BookingStatus.CANCEL_REQUESTED,
+      BookingStatus.CANCELLED,
+      BookingStatus.EXPIRED,
+    ],
+    [BookingStatus.CONFIRMED]: [
+      BookingStatus.READY,
+      BookingStatus.CANCEL_REQUESTED,
+      BookingStatus.CANCELLED,
+      BookingStatus.EXPIRED,
+    ],
+    [BookingStatus.READY]: [
+      BookingStatus.COMPLETED,
+      BookingStatus.CANCEL_REQUESTED,
+      BookingStatus.CANCELLED,
+      BookingStatus.EXPIRED,
+    ],
+    [BookingStatus.CANCEL_REQUESTED]: [
+      BookingStatus.CANCELLED,
+      BookingStatus.PENDING,
+      BookingStatus.CONFIRMED,
+      BookingStatus.READY,
+    ],
     [BookingStatus.CANCELLED]: [],
     [BookingStatus.COMPLETED]: [],
+    [BookingStatus.EXPIRED]: [],
   };
 
   if (!allowedTransitions[currentStatus].includes(nextStatus)) {
@@ -93,6 +131,27 @@ const getBookingOrThrow = async (bookingId: string, tx: Prisma.TransactionClient
   return booking;
 };
 
+const notifyCustomerFromStore = async (booking: BookingNotificationTarget, subject: string, text: string) => {
+  const sender = await getStoreSender(booking.storeId);
+  await sendUserEmail(booking.userId, {
+    subject,
+    text,
+    html: buildEmailHtml(subject, [text]),
+    topic: 'bookings',
+    ...sender,
+  });
+};
+
+const notifyStoreOwner = async (booking: BookingNotificationTarget, subject: string, text: string) => {
+  const store = await prisma.store.findUnique({
+    where: { id: booking.storeId },
+    select: { ownerId: true },
+  });
+  if (store?.ownerId) {
+    await sendUserEmail(store.ownerId, { subject, text, html: buildEmailHtml(subject, [text]), topic: 'bookings' });
+  }
+};
+
 const restockBookingItems = async (
   tx: Prisma.TransactionClient,
   items: { itemId: string; quantity: number }[],
@@ -109,11 +168,12 @@ const restockBookingItems = async (
   }
 };
 
-const cancelBookingWithSingleRestock = async (
+const finishBookingWithSingleRestock = async (
   tx: Prisma.TransactionClient,
   bookingId: string,
   input: {
     reason: string;
+    status: (typeof BookingStatus)['CANCELLED'] | (typeof BookingStatus)['EXPIRED'];
     reviewedById?: string;
     requireCancellationRequest?: boolean;
   },
@@ -122,12 +182,12 @@ const cancelBookingWithSingleRestock = async (
   const claimed = await tx.booking.updateMany({
     where: {
       id: bookingId,
-      status: { in: [...cancellableStatuses] },
+      status: { in: [...cancellableStatuses, BookingStatus.READY, BookingStatus.CANCEL_REQUESTED] },
       inventoryRestoredAt: null,
       ...(input.requireCancellationRequest ? { cancellationRequestedAt: { not: null } } : {}),
     },
     data: {
-      status: BookingStatus.CANCELLED,
+      status: input.status,
       cancellationReviewedAt: now,
       cancellationRejectedAt: null,
       cancellationReviewedById: input.reviewedById,
@@ -154,11 +214,12 @@ const cancelBookingWithSingleRestock = async (
     data: { inventoryRestoredAt: now },
   });
 
+  invalidateBookingCaches();
   return getBookingOrThrow(bookingId, tx);
 };
 
-export const checkoutCart = async (userId: string, cartId: string) => {
-  return prisma.$transaction(
+export const checkoutCart = async (userId: string, cartId: string, couponCode?: string) => {
+  const booking = await prisma.$transaction(
     async (tx) => {
       const cart = await tx.cart.findFirst({
         where: {
@@ -203,9 +264,25 @@ export const checkoutCart = async (userId: string, cartId: string) => {
         }
       }
 
-      const totalAmount = cart.items.reduce((total, cartItem) => {
+      const subtotalAmount = cart.items.reduce((total, cartItem) => {
         return total.plus(new Prisma.Decimal(cartItem.item.price).mul(cartItem.quantity));
       }, new Prisma.Decimal(0));
+
+      const coupon = couponCode
+        ? await validateCouponForStore(userId, cart.storeId, couponCode, subtotalAmount, tx)
+        : null;
+      const discountAmount = coupon
+        ? coupon.type === 'PERCENTAGE'
+          ? Prisma.Decimal.min(
+              subtotalAmount.mul(new Prisma.Decimal(coupon.value)).div(100),
+              subtotalAmount,
+            )
+          : Prisma.Decimal.min(new Prisma.Decimal(coupon.value), subtotalAmount)
+        : new Prisma.Decimal(0);
+      const totalAmount = Prisma.Decimal.max(
+        subtotalAmount.minus(discountAmount),
+        new Prisma.Decimal(0),
+      );
 
       for (const cartItem of cart.items) {
         const result = await tx.item.updateMany({
@@ -234,6 +311,9 @@ export const checkoutCart = async (userId: string, cartId: string) => {
         data: {
           userId,
           storeId: cart.storeId,
+          campaignId: coupon?.id,
+          subtotalAmount,
+          discountAmount,
           totalAmount,
           expiresAt,
           items: {
@@ -247,6 +327,10 @@ export const checkoutCart = async (userId: string, cartId: string) => {
         include: bookingInclude,
       });
 
+      if (coupon) {
+        await claimCouponUsage(coupon.id, userId, booking.id, tx);
+      }
+
       await tx.cartItem.deleteMany({
         where: { cartId },
       });
@@ -255,10 +339,19 @@ export const checkoutCart = async (userId: string, cartId: string) => {
         where: { id: cartId },
       });
 
+      invalidateBookingCaches(cart.storeId, userId);
       return booking;
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
   );
+
+  void notifyCustomerFromStore(
+    booking,
+    'Munchies booking created',
+    `Booking ${booking.id} was created for ${booking.store.name}.`,
+  ).catch(() => undefined);
+
+  return booking;
 };
 
 const buildBookingListWhere = (
@@ -337,7 +430,7 @@ export const updateBookingStatus = async (
   user: UserContext,
   status: BookingStatus,
 ) => {
-  return prisma.$transaction(async (tx) => {
+  const booking = await prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findFirst({
       where: {
         id: bookingId,
@@ -371,8 +464,9 @@ export const updateBookingStatus = async (
     assertStatusTransition(booking.status, status);
 
     if (status === BookingStatus.CANCELLED) {
-      const cancelled = await cancelBookingWithSingleRestock(tx, bookingId, {
+      const cancelled = await finishBookingWithSingleRestock(tx, bookingId, {
         reason: 'Cancelled by store',
+        status: BookingStatus.CANCELLED,
         reviewedById: user.id,
       });
 
@@ -389,19 +483,32 @@ export const updateBookingStatus = async (
         status: booking.status,
         cancellationRequestedAt: null,
       },
-      data: { status },
+      data: {
+        status,
+        ...(status === BookingStatus.COMPLETED ? { collectedAt: new Date() } : {}),
+      },
     });
 
     if (updated.count !== 1) {
       throw new AppError('Booking was updated by another request', 409);
     }
 
-    return getBookingOrThrow(bookingId, tx);
+    const nextBooking = await getBookingOrThrow(bookingId, tx);
+    invalidateBookingCaches(nextBooking.storeId, nextBooking.userId);
+    return nextBooking;
   });
+
+  void notifyCustomerFromStore(
+    booking,
+    'Munchies booking status updated',
+    `Booking ${booking.id} is now ${booking.status}.`,
+  ).catch(() => undefined);
+
+  return booking;
 };
 
 export const requestBookingCancellation = async (bookingId: string, userId: string) => {
-  return prisma.$transaction(async (tx) => {
+  const booking = await prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findFirst({
       where: {
         id: bookingId,
@@ -438,6 +545,8 @@ export const requestBookingCancellation = async (bookingId: string, userId: stri
         cancellationRequestedAt: null,
       },
       data: {
+        status: BookingStatus.CANCEL_REQUESTED,
+        cancellationPreviousStatus: booking.status,
         cancellationRequestedAt: new Date(),
         cancellationReviewedAt: null,
         cancellationRejectedAt: null,
@@ -450,12 +559,22 @@ export const requestBookingCancellation = async (bookingId: string, userId: stri
       throw new AppError('Booking was updated by another request', 409);
     }
 
-    return getBookingOrThrow(bookingId, tx);
+    const nextBooking = await getBookingOrThrow(bookingId, tx);
+    invalidateBookingCaches(nextBooking.storeId, nextBooking.userId);
+    return nextBooking;
   });
+
+  void notifyStoreOwner(
+    booking,
+    'Munchies cancellation requested',
+    `Cancellation was requested for booking ${booking.id}.`,
+  ).catch(() => undefined);
+
+  return booking;
 };
 
 export const approveBookingCancellation = async (bookingId: string, user: UserContext) => {
-  return prisma.$transaction(async (tx) => {
+  const booking = await prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findFirst({
       where: {
         id: bookingId,
@@ -481,12 +600,13 @@ export const approveBookingCancellation = async (bookingId: string, user: UserCo
       throw new AppError('Cancellation has not been requested', 400);
     }
 
-    if (!canRequestCancellation(booking.status)) {
+    if (booking.status !== BookingStatus.CANCEL_REQUESTED) {
       throw new AppError('This booking cannot be cancelled', 400);
     }
 
-    const cancelled = await cancelBookingWithSingleRestock(tx, bookingId, {
+    const cancelled = await finishBookingWithSingleRestock(tx, bookingId, {
       reason: 'Cancellation approved',
+      status: BookingStatus.CANCELLED,
       reviewedById: user.id,
       requireCancellationRequest: true,
     });
@@ -497,10 +617,18 @@ export const approveBookingCancellation = async (bookingId: string, user: UserCo
 
     return cancelled;
   });
+
+  void notifyCustomerFromStore(
+    booking,
+    'Munchies cancellation approved',
+    `Cancellation was approved for booking ${booking.id}.`,
+  ).catch(() => undefined);
+
+  return booking;
 };
 
 export const rejectBookingCancellation = async (bookingId: string, user: UserContext) => {
-  return prisma.$transaction(async (tx) => {
+  const booking = await prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findFirst({
       where: {
         id: bookingId,
@@ -510,6 +638,7 @@ export const rejectBookingCancellation = async (bookingId: string, user: UserCon
         id: true,
         status: true,
         cancellationRequestedAt: true,
+        cancellationPreviousStatus: true,
       },
     });
 
@@ -521,17 +650,22 @@ export const rejectBookingCancellation = async (bookingId: string, user: UserCon
       return getBookingOrThrow(bookingId, tx);
     }
 
-    if (!canRequestCancellation(booking.status)) {
+    if (booking.status !== BookingStatus.CANCEL_REQUESTED) {
       throw new AppError('This cancellation request cannot be reviewed', 400);
     }
+
+    const restoredStatus = booking.cancellationPreviousStatus ?? BookingStatus.CONFIRMED;
+    assertStatusTransition(booking.status, restoredStatus);
 
     const updated = await tx.booking.updateMany({
       where: {
         id: bookingId,
-        status: { in: [...cancellableStatuses] },
+        status: BookingStatus.CANCEL_REQUESTED,
         cancellationRequestedAt: { not: null },
       },
       data: {
+        status: restoredStatus,
+        cancellationPreviousStatus: null,
         cancellationRequestedAt: null,
         cancellationReviewedAt: new Date(),
         cancellationRejectedAt: new Date(),
@@ -544,12 +678,32 @@ export const rejectBookingCancellation = async (bookingId: string, user: UserCon
       return getBookingOrThrow(bookingId, tx);
     }
 
-    return getBookingOrThrow(bookingId, tx);
+    const nextBooking = await getBookingOrThrow(bookingId, tx);
+    invalidateBookingCaches(nextBooking.storeId, nextBooking.userId);
+    return nextBooking;
   });
+
+  void notifyCustomerFromStore(
+    booking,
+    'Munchies cancellation rejected',
+    `Cancellation was rejected for booking ${booking.id}; status is ${booking.status}.`,
+  ).catch(() => undefined);
+
+  return booking;
 };
 
 export const expireBookingWithRestock = async (bookingId: string, tx: Prisma.TransactionClient) => {
-  return cancelBookingWithSingleRestock(tx, bookingId, {
+  return finishBookingWithSingleRestock(tx, bookingId, {
     reason: 'Order expired before collection',
+    status: BookingStatus.EXPIRED,
   });
+};
+
+export const invalidateBookingCaches = (storeId?: string, userId?: string) => {
+  invalidateCache([
+    'stores:',
+    ...(storeId ? [`store:${storeId}`, `campaigns:${storeId}`] : []),
+    ...(userId ? [`stores:owner:${userId}`] : []),
+  ]);
+  invalidateAnalyticsCaches(storeId, userId);
 };

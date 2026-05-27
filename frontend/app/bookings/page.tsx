@@ -186,7 +186,7 @@ export default function BookingHistoryPage() {
                 </span>
               </div>
 
-              {booking.cancellationRequestedAt && booking.status !== 'CANCELLED' ? (
+              {booking.status === 'CANCEL_REQUESTED' ? (
                 <p className="mt-4 text-sm font-medium text-amber-200">
                   Cancellation requested - waiting for store owner review
                 </p>
@@ -215,7 +215,9 @@ export default function BookingHistoryPage() {
                     Total: Rs. {Number(booking.totalAmount).toFixed(2)}
                   </p>
                   {!booking.cancellationRequestedAt &&
-                  (booking.status === 'PENDING' || booking.status === 'CONFIRMED') ? (
+                  (booking.status === 'PENDING' ||
+                    booking.status === 'CONFIRMED' ||
+                    booking.status === 'READY') ? (
                     <button
                       className={dangerOutlineButtonClass}
                       disabled={busyId === booking.id}

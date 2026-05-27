@@ -27,6 +27,7 @@ export const createStoreSchema = z.object({
     name: z.string().trim().min(2, 'Store name must be at least 2 characters'),
     hostelId: z.string().uuid('Invalid hostel id'),
     roomNumber: z.string().trim().min(1, 'Room number is required'),
+    email: z.string().trim().email('Invalid store email').optional(),
   }),
 });
 
@@ -34,9 +35,12 @@ export const updateStoreSchema = z.object({
   params: z.object({
     id: z.string().uuid('Invalid store id'),
   }),
-  body: z.object({
-    name: z.string().trim().min(2, 'Store name must be at least 2 characters').optional(),
-    hostelId: z.string().uuid('Invalid hostel id').optional(),
-    roomNumber: z.string().trim().min(1, 'Room number is required').optional(),
-  }),
+  body: z
+    .object({
+      name: z.string().trim().min(2, 'Store name must be at least 2 characters').optional(),
+      hostelId: z.string().uuid('Invalid hostel id').optional(),
+      roomNumber: z.string().trim().min(1, 'Room number is required').optional(),
+      email: z.string().trim().email('Invalid store email').nullable().optional(),
+    })
+    .refine((value) => Object.keys(value).length > 0, 'At least one store field is required'),
 });

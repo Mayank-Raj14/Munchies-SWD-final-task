@@ -14,3 +14,12 @@ export const loginSchema = z.object({
     password: z.string().min(1, 'Password is required'),
   }),
 });
+
+export const emailPreferencesSchema = z.object({
+  body: z.object({
+    emailNotificationsEnabled: z.boolean(),
+    bookings: z.boolean().optional(),
+    promotions: z.boolean().optional(),
+    newStores: z.boolean().optional(),
+  }),
+});

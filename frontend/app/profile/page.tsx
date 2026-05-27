@@ -26,8 +26,12 @@ import {
 } from '@/components/marketplace-ui';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { getBookings } from '@/services/bookings';
-import { getMyStoreOwnershipRequests, type StoreOwnershipRequest } from '@/services/store-ownership-requests';
+import {
+  getMyStoreOwnershipRequests,
+  type StoreOwnershipRequest,
+} from '@/services/store-ownership-requests';
 import { getMyStores } from '@/services/stores';
+import { updateEmailPreferences } from '@/services/auth';
 import type { Booking } from '@/types/booking';
 import type { Store as StoreType } from '@/types/store';
 
@@ -66,7 +70,9 @@ export default function ProfilePage() {
   const [requests, setRequests] = useState<StoreOwnershipRequest[]>([]);
   const [stores, setStores] = useState<StoreType[]>([]);
   const [message, setMessage] = useState('');
+  const [preferenceMessage, setPreferenceMessage] = useState('');
   const [isDashboardLoading, setIsDashboardLoading] = useState(true);
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     if (!user) {
@@ -105,7 +111,8 @@ export default function ProfilePage() {
   }, [isLoading, loadDashboard, user]);
 
   const activeOrders = useMemo(
-    () => bookings.filter((booking) => booking.status === 'PENDING' || booking.status === 'CONFIRMED'),
+    () =>
+      bookings.filter((booking) => booking.status === 'PENDING' || booking.status === 'CONFIRMED'),
     [bookings],
   );
   const completedOrders = useMemo(
@@ -116,6 +123,39 @@ export default function ProfilePage() {
     () => requests.filter((request) => request.status === 'PENDING'),
     [requests],
   );
+
+  const handleEmailPreferenceChange = async (
+    payload: {
+      emailNotificationsEnabled?: boolean;
+      bookings?: boolean;
+      promotions?: boolean;
+      newStores?: boolean;
+    },
+  ) => {
+    if (isSavingPreferences) {
+      return;
+    }
+
+    setIsSavingPreferences(true);
+    setPreferenceMessage('');
+
+    try {
+      await updateEmailPreferences({
+        emailNotificationsEnabled: payload.emailNotificationsEnabled ?? user?.emailNotificationsEnabled ?? true,
+        bookings: payload.bookings ?? user?.preferences?.bookings ?? true,
+        promotions: payload.promotions ?? user?.preferences?.promotions ?? true,
+        newStores: payload.newStores ?? user?.preferences?.newStores ?? true,
+      });
+      await refreshUser({ silent: true });
+      setPreferenceMessage('Email preferences updated.');
+    } catch (error) {
+      setPreferenceMessage(
+        error instanceof Error ? error.message : 'Unable to update email preferences.',
+      );
+    } finally {
+      setIsSavingPreferences(false);
+    }
+  };
 
   return (
     <PageContainer size="wide">
@@ -174,18 +214,60 @@ export default function ProfilePage() {
             </div>
           </MarketSurface>
 
+          {user.globalBlock ? (
+            <div className="mt-6">
+              <Notice tone="danger">
+                Your account is blocked from checkout. Reason: {user.globalBlock.reason}
+              </Notice>
+            </div>
+          ) : user.warningCount ? (
+            <div className="mt-6">
+              <Notice tone="warning">
+                You have {user.warningCount} warning{user.warningCount === 1 ? '' : 's'}. Three
+                warnings automatically block checkout.
+              </Notice>
+            </div>
+          ) : null}
+
           <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard icon={ClipboardList} label="Current orders" tone="emerald" value={String(activeOrders.length)} />
-            <StatCard icon={History} label="Completed orders" value={String(completedOrders.length)} />
-            <StatCard icon={ScrollText} label="Store requests" tone="amber" value={String(requests.length)} />
-            <StatCard icon={BarChart3} label="Seller stores" tone="emerald" value={String(stores.length)} />
+            <StatCard
+              icon={ClipboardList}
+              label="Current orders"
+              tone="emerald"
+              value={String(activeOrders.length)}
+            />
+            <StatCard
+              icon={History}
+              label="Completed orders"
+              value={String(completedOrders.length)}
+            />
+            <StatCard
+              icon={ScrollText}
+              label="Store requests"
+              tone="amber"
+              value={String(requests.length)}
+            />
+            <StatCard
+              icon={BarChart3}
+              label="Seller stores"
+              tone="emerald"
+              value={String(stores.length)}
+            />
+            <StatCard
+              icon={Zap}
+              label="Warnings"
+              tone="amber"
+              value={String(user.warningCount ?? 0)}
+            />
           </section>
 
           <section className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
             <MarketSurface className="p-6">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.08em] text-accent">Orders</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.08em] text-accent">
+                    Orders
+                  </p>
                   <h2 className="mt-1 text-xl font-semibold text-foreground">Current orders</h2>
                 </div>
                 <Link className={secondaryButtonClass} href="/bookings">
@@ -201,12 +283,16 @@ export default function ProfilePage() {
               ) : activeOrders.length > 0 ? (
                 <div className="mt-5 space-y-3">
                   {activeOrders.slice(0, 3).map((booking) => (
-                    <article className="rounded-lg border border-border bg-surface-raised p-4" key={booking.id}>
+                    <article
+                      className="rounded-lg border border-border bg-surface-raised p-4"
+                      key={booking.id}
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="font-bold text-foreground">{booking.store.name}</p>
                           <p className="mt-1 text-sm font-medium text-foreground-muted">
-                            {booking.store.hostel.name} - Rs. {Number(booking.totalAmount).toFixed(2)}
+                            {booking.store.hostel.name} - Rs.{' '}
+                            {Number(booking.totalAmount).toFixed(2)}
                           </p>
                         </div>
                         <span className="rounded-full bg-accent-muted px-3 py-1 text-xs font-medium text-accent">
@@ -249,7 +335,10 @@ export default function ProfilePage() {
                   },
                   {
                     icon: Zap,
-                    label: user.role === 'STORE_OWNER' || user.role === 'ADMIN' ? 'Seller tools enabled' : 'Customer mode',
+                    label:
+                      user.role === 'STORE_OWNER' || user.role === 'ADMIN'
+                        ? 'Seller tools enabled'
+                        : 'Customer mode',
                     text:
                       user.role === 'STORE_OWNER' || user.role === 'ADMIN'
                         ? 'Store, inventory, and seller order controls are available.'
@@ -264,13 +353,18 @@ export default function ProfilePage() {
                   const Icon = item.icon;
 
                   return (
-                    <div className="flex gap-3 rounded-lg border border-border bg-surface-raised p-3" key={item.label}>
+                    <div
+                      className="flex gap-3 rounded-lg border border-border bg-surface-raised p-3"
+                      key={item.label}
+                    >
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-accent-muted text-accent">
                         <Icon className="h-4 w-4" aria-hidden="true" />
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-foreground">{item.label}</p>
-                        <p className="mt-1 text-xs font-medium leading-5 text-foreground-muted">{item.text}</p>
+                        <p className="mt-1 text-xs font-medium leading-5 text-foreground-muted">
+                          {item.text}
+                        </p>
                       </div>
                     </div>
                   );
@@ -287,15 +381,23 @@ export default function ProfilePage() {
               </div>
               <dl className="mt-5 grid gap-4 sm:grid-cols-2">
                 <div className="rounded-lg bg-slate-900/30 p-4">
-                  <dt className="text-xs font-bold uppercase tracking-[0.08em] text-foreground-muted">Name</dt>
+                  <dt className="text-xs font-bold uppercase tracking-[0.08em] text-foreground-muted">
+                    Name
+                  </dt>
                   <dd className="mt-2 font-semibold text-foreground">{user.name}</dd>
                 </div>
                 <div className="rounded-lg bg-slate-900/30 p-4">
-                  <dt className="text-xs font-bold uppercase tracking-[0.08em] text-foreground-muted">Role</dt>
-                  <dd className="mt-2 font-semibold text-foreground">{user.role.replace('_', ' ')}</dd>
+                  <dt className="text-xs font-bold uppercase tracking-[0.08em] text-foreground-muted">
+                    Role
+                  </dt>
+                  <dd className="mt-2 font-semibold text-foreground">
+                    {user.role.replace('_', ' ')}
+                  </dd>
                 </div>
                 <div className="rounded-lg bg-slate-900/30 p-4 sm:col-span-2">
-                  <dt className="text-xs font-bold uppercase tracking-[0.08em] text-foreground-muted">Email</dt>
+                  <dt className="text-xs font-bold uppercase tracking-[0.08em] text-foreground-muted">
+                    Email
+                  </dt>
                   <dd className="mt-2 break-all font-semibold text-foreground">{user.email}</dd>
                 </div>
               </dl>
@@ -324,6 +426,50 @@ export default function ProfilePage() {
                     </Link>
                   </>
                 )}
+              </div>
+              <div className="mt-6 rounded-lg border border-border bg-surface-raised p-4">
+                <label className="flex items-center justify-between gap-4">
+                  <span>
+                    <span className="block text-sm font-semibold text-foreground">
+                      Email notifications
+                    </span>
+                    <span className="mt-1 block text-xs text-foreground-muted">
+                      Booking, campaign, and store alerts.
+                    </span>
+                  </span>
+                  <input
+                    checked={user.emailNotificationsEnabled ?? true}
+                    className="h-5 w-5 accent-[var(--accent)]"
+                    disabled={isSavingPreferences}
+                    onChange={(event) =>
+                      void handleEmailPreferenceChange({
+                        emailNotificationsEnabled: event.target.checked,
+                      })
+                    }
+                    type="checkbox"
+                  />
+                </label>
+                {(['bookings', 'promotions', 'newStores'] as const).map((key) => (
+                  <label className="mt-3 flex items-center justify-between gap-4" key={key}>
+                    <span className="text-xs font-medium text-foreground-muted">
+                      {key === 'newStores' ? 'New stores' : key[0].toUpperCase() + key.slice(1)}
+                    </span>
+                    <input
+                      checked={user.preferences?.[key] ?? true}
+                      className="h-4 w-4 accent-[var(--accent)]"
+                      disabled={isSavingPreferences || !(user.emailNotificationsEnabled ?? true)}
+                      onChange={(event) =>
+                        void handleEmailPreferenceChange({ [key]: event.target.checked })
+                      }
+                      type="checkbox"
+                    />
+                  </label>
+                ))}
+                {preferenceMessage ? (
+                  <p className="mt-3 text-xs font-medium text-foreground-muted">
+                    {preferenceMessage}
+                  </p>
+                ) : null}
               </div>
             </MarketSurface>
           </section>

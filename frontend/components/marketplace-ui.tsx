@@ -16,7 +16,9 @@ const widthClass = {
 
 export function PageContainer({ children, className = '', size = 'default' }: PageContainerProps) {
   return (
-    <main className={`min-h-screen px-4 pb-24 pt-4 sm:px-5 sm:pt-5 lg:px-7 lg:pb-8 lg:pt-6 ${className}`}>
+    <main
+      className={`min-h-screen px-4 pb-24 pt-4 sm:px-5 sm:pt-5 lg:px-7 lg:pb-8 lg:pt-6 ${className}`}
+    >
       <div className={`mx-auto w-full ${widthClass[size]}`}>{children}</div>
     </main>
   );
@@ -52,7 +54,9 @@ export function SectionHeader({
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{title}</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+          {title}
+        </h1>
         {description ? (
           <p className="mt-1 max-w-lg text-sm text-foreground-muted">{description}</p>
         ) : null}
@@ -82,9 +86,7 @@ export function Notice({
     warning: 'border-amber-500/25 bg-amber-500/10 text-amber-100',
   }[tone];
 
-  return (
-    <div className={`rounded-xl border px-3.5 py-2.5 text-sm ${toneClass}`}>{children}</div>
-  );
+  return <div className={`rounded-xl border px-3.5 py-2.5 text-sm ${toneClass}`}>{children}</div>;
 }
 
 export function CardSkeleton({ className = '' }: { className?: string }) {

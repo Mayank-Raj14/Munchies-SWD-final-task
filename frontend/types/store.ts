@@ -4,6 +4,7 @@ export type Store = {
   id: string;
   name: string;
   roomNumber: string;
+  email?: string | null;
   createdAt: string;
   hostel: {
     id: string;
@@ -14,6 +15,10 @@ export type Store = {
     name: string;
   };
   items?: Item[];
+  _count?: {
+    items: number;
+    bookings: number;
+  };
 };
 
 export type StoreListResponse = {

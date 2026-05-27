@@ -4,8 +4,7 @@ const MAX_SEARCH_TOKENS = 5;
 const MAX_SEARCH_LENGTH = 100;
 
 /** Strip PostgreSQL ILIKE wildcards — Prisma `contains` does not set an ESCAPE clause. */
-export const sanitizeLikePattern = (value: string): string =>
-  value.replace(/[%_\\]/g, '').trim();
+export const sanitizeLikePattern = (value: string): string => value.replace(/[%_\\]/g, '').trim();
 
 /** Normalize free-text search: trim, collapse whitespace, cap length. */
 export const normalizeSearchQuery = (raw?: string): string | undefined => {

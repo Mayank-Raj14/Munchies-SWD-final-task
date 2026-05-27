@@ -1,4 +1,11 @@
-export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+export type BookingStatus =
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'READY'
+  | 'CANCEL_REQUESTED'
+  | 'CANCELLED'
+  | 'COMPLETED'
+  | 'EXPIRED';
 
 export type BookingItem = {
   id: string;
@@ -21,7 +28,11 @@ export type Booking = {
   userId: string;
   storeId: string;
   status: BookingStatus;
+  subtotalAmount: string;
+  discountAmount: string;
   totalAmount: string;
+  collectedAt?: string | null;
+  expiresAt?: string | null;
   cancellationRequestedAt?: string | null;
   cancellationReviewedAt?: string | null;
   cancellationRejectedAt?: string | null;

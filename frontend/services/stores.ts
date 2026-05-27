@@ -8,14 +8,15 @@ type StorePayload = {
   name: string;
   hostelId: string;
   roomNumber: string;
+  email?: string | null;
 };
 
 export const getStores = async (
-  params: { search?: string; page?: number; hostelId?: string } = {},
+  params: { search?: string; page?: number; hostelId?: string; limit?: number } = {},
 ) => {
   const query: Record<string, string> = {
     page: String(params.page ?? 1),
-    limit: '12',
+    limit: String(params.limit ?? 12),
   };
 
   const trimmedSearch = params.search?.trim();

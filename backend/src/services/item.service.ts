@@ -3,6 +3,8 @@ import { Role } from '@prisma/client';
 import { prisma } from '../prisma/client.js';
 import { AppError } from '../utils/app-error.js';
 import { deleteUploadedFile } from '../utils/file-storage.js';
+import { invalidateAnalyticsCaches } from './analytics.service.js';
+import { invalidateStoreCaches } from './store.service.js';
 
 type UserContext = {
   id: string;
@@ -33,6 +35,8 @@ const ensureStoreAccess = async (storeId: string, user: UserContext) => {
   if (user.role !== Role.ADMIN && store.ownerId !== user.id) {
     throw new AppError('You can only manage inventory for your own stores', 403);
   }
+
+  return store;
 };
 
 export const listStoreItems = async (storeId: string, user: UserContext) => {
@@ -45,13 +49,13 @@ export const listStoreItems = async (storeId: string, user: UserContext) => {
 };
 
 export const createStoreItem = async (storeId: string, user: UserContext, input: ItemInput) => {
-  await ensureStoreAccess(storeId, user);
+  const store = await ensureStoreAccess(storeId, user);
 
   if (input.stock < 0) {
     throw new AppError('Stock cannot be negative', 400);
   }
 
-  return prisma.item.create({
+  const item = await prisma.item.create({
     data: {
       storeId,
       name: input.name,
@@ -63,6 +67,10 @@ export const createStoreItem = async (storeId: string, user: UserContext, input:
       isAvailable: input.stock > 0,
     },
   });
+
+  invalidateStoreCaches(store.ownerId, storeId);
+  invalidateAnalyticsCaches(storeId);
+  return item;
 };
 
 export const updateStoreItem = async (
@@ -71,7 +79,7 @@ export const updateStoreItem = async (
   user: UserContext,
   input: UpdateItemInput,
 ) => {
-  await ensureStoreAccess(storeId, user);
+  const store = await ensureStoreAccess(storeId, user);
 
   const item = await prisma.item.findFirst({
     where: { id: itemId, storeId },
@@ -104,11 +112,13 @@ export const updateStoreItem = async (
     await deleteUploadedFile(item.imageUrl);
   }
 
+  invalidateStoreCaches(store.ownerId, storeId);
+  invalidateAnalyticsCaches(storeId);
   return updatedItem;
 };
 
 export const deleteStoreItem = async (storeId: string, itemId: string, user: UserContext) => {
-  await ensureStoreAccess(storeId, user);
+  const store = await ensureStoreAccess(storeId, user);
 
   const item = await prisma.item.findFirst({
     where: { id: itemId, storeId },
@@ -135,4 +145,6 @@ export const deleteStoreItem = async (storeId: string, itemId: string, user: Use
   });
 
   await deleteUploadedFile(item.imageUrl);
+  invalidateStoreCaches(store.ownerId, storeId);
+  invalidateAnalyticsCaches(storeId);
 };

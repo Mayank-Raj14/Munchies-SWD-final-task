@@ -41,9 +41,7 @@ export default function StorePage({ params }: StorePageProps) {
   const { id } = use(params);
   const [store, setStore] = useState<Store | null>(null);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; text: string } | null>(
-    null,
-  );
+  const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
 
@@ -154,11 +152,15 @@ export default function StorePage({ params }: StorePageProps) {
                     </div>
                     <div className="flex justify-between gap-4">
                       <span className="text-foreground-muted">Owner</span>
-                      <span className="truncate font-medium text-foreground">{store.owner.name}</span>
+                      <span className="truncate font-medium text-foreground">
+                        {store.owner.name}
+                      </span>
                     </div>
                     <div className="flex justify-between gap-4">
                       <span className="text-foreground-muted">Items</span>
-                      <span className="font-medium text-foreground">{store.items?.length ?? 0}</span>
+                      <span className="font-medium text-foreground">
+                        {store.items?.length ?? 0}
+                      </span>
                     </div>
                   </div>
                 </div>

@@ -5,7 +5,12 @@ import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 import { ArrowRight, LockKeyhole, Mail, User } from 'lucide-react';
 
-import { authHeroClass, authShellClass, fieldClass, primaryButtonClass } from '@/components/marketplace-ui';
+import {
+  authHeroClass,
+  authShellClass,
+  fieldClass,
+  primaryButtonClass,
+} from '@/components/marketplace-ui';
 import { useAuth } from '@/contexts/auth-context';
 import { ApiError } from '@/services/api';
 import { registerUser, saveAuthToken } from '@/services/auth';
@@ -52,7 +57,9 @@ export default function RegisterPage() {
             Munchies
           </Link>
           <div>
-            <h1 className="text-2xl font-semibold leading-tight text-foreground">Create your account</h1>
+            <h1 className="text-2xl font-semibold leading-tight text-foreground">
+              Create your account
+            </h1>
             <p className="mt-2 text-sm text-foreground-muted">Order from stores on campus.</p>
           </div>
         </div>

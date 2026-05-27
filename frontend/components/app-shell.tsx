@@ -17,6 +17,7 @@ const pageTitles: Record<string, string> = {
   '/store-owner/orders': 'Seller orders',
   '/store-owner/inventory': 'Inventory',
   '/store-owner/stores': 'My stores',
+  '/admin': 'Schema console',
   '/admin/store-owner-requests': 'Approvals',
 };
 
@@ -25,9 +26,7 @@ function getPageTitle(pathname: string) {
     return pageTitles[pathname];
   }
 
-  const match = Object.entries(pageTitles).find(
-    ([path]) => pathname.startsWith(`${path}/`),
-  );
+  const match = Object.entries(pageTitles).find(([path]) => pathname.startsWith(`${path}/`));
 
   return match?.[1] ?? 'Munchies';
 }
@@ -40,6 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const title = getPageTitle(pathname);
 
   if (isAuthRoute) return children;
+  if (pathname === '/admin') return children;
 
   return (
     <div className="min-h-screen bg-canvas lg:pl-sidebar">

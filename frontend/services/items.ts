@@ -49,7 +49,7 @@ export const createStoreItem = async (storeId: string, payload: ItemFormPayload)
     body: toFormData(payload),
   });
 
-  const data = await parseApiResponse(response, 'Inventory request failed', {
+  const data = await parseApiResponse<{ item: Item }>(response, 'Inventory request failed', {
     url,
     method: 'POST',
   });
@@ -69,7 +69,7 @@ export const updateStoreItem = async (
     body: toFormData(payload),
   });
 
-  const data = await parseApiResponse(response, 'Inventory request failed', {
+  const data = await parseApiResponse<{ item: Item }>(response, 'Inventory request failed', {
     url,
     method: 'PATCH',
   });
@@ -84,7 +84,7 @@ export const deleteStoreItem = async (storeId: string, itemId: string) => {
     headers: authHeaders('form'),
   });
 
-  const data = await parseApiResponse(response, 'Inventory request failed', {
+  const data = await parseApiResponse<void>(response, 'Inventory request failed', {
     url,
     method: 'DELETE',
   });

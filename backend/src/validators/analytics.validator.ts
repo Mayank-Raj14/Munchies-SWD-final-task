@@ -3,6 +3,7 @@ import { z } from 'zod';
 const analyticsDateQuery = z.object({
   dateFrom: z.coerce.date().optional(),
   dateTo: z.coerce.date().optional(),
+  lowStockThreshold: z.coerce.number().int().min(0).max(1000).optional(),
 });
 
 export const storeAnalyticsParamSchema = z.object({

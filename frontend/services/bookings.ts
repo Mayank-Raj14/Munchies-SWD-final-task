@@ -4,27 +4,27 @@ import { apiFetch, authHeaders, parseApiResponse } from './api';
 import { notifyDataChanged } from '@/lib/sync-events';
 import type { Booking, BookingStatus } from '@/types/booking';
 
-export const checkoutCart = async (cartId: string) => {
+export const checkoutCart = async (cartId: string, couponCode?: string) => {
   const url = buildApiUrl(API_ROUTES.bookings.checkout);
   const response = await apiFetch(url, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ cartId }),
+    body: JSON.stringify({ cartId, ...(couponCode ? { couponCode } : {}) }),
   });
 
   const data = await parseApiResponse<{ booking: Booking }>(response, 'Booking request failed', {
     url,
     method: 'POST',
   });
-  notifyDataChanged(['bookings', 'cart', 'inventory', 'stores']);
+  notifyDataChanged(['bookings', 'cart', 'inventory', 'stores', 'campaigns']);
   return data;
 };
 
 export const getBookings = async (scope?: 'store' | 'personal') => {
-  const url = buildApiUrl(
-    API_ROUTES.bookings.list,
-    scope ? { scope } : undefined,
-  );
+  const url = buildApiUrl(API_ROUTES.bookings.list, {
+    ...(scope ? { scope } : {}),
+    limit: 100,
+  });
   const response = await apiFetch(url, {
     headers: authHeaders(),
   });

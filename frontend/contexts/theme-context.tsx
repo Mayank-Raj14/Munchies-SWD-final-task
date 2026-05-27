@@ -14,6 +14,7 @@ import { DEFAULT_THEME, isThemeId, THEME_STORAGE_KEY, type ThemeId } from '@/lib
 
 type ThemeContextValue = {
   theme: ThemeId;
+  isHydrated: boolean;
   setTheme: (theme: ThemeId) => void;
 };
 
@@ -25,11 +26,13 @@ function applyTheme(theme: ThemeId) {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeId>(DEFAULT_THEME);
+  const [isHydrated, setIsHydrated] = useState(false);
   useEffect(() => {
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
     const initial = stored && isThemeId(stored) ? stored : DEFAULT_THEME;
     setThemeState(initial);
     applyTheme(initial);
+    setIsHydrated(true);
   }, []);
 
   const setTheme = useCallback((next: ThemeId) => {
@@ -38,7 +41,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     applyTheme(next);
   }, []);
 
-  const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
+  const value = useMemo(() => ({ theme, isHydrated, setTheme }), [theme, isHydrated, setTheme]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

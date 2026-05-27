@@ -28,7 +28,6 @@ storeRouter.use('/:storeId/items', itemRouter);
 storeRouter.get(
   '/my-stores',
   authenticate,
-  requireRole(Role.STORE_OWNER, Role.ADMIN),
   asyncHandler(getMyStores),
 );
 storeRouter.get('/:id', validateRequest(storeIdParamSchema), asyncHandler(getStore));

@@ -43,6 +43,16 @@ const statusSections: { status: BookingStatus; title: string; description: strin
     description: 'Orders you accepted and are preparing.',
   },
   {
+    status: 'READY',
+    title: 'Ready for pickup',
+    description: 'Orders waiting for customer collection.',
+  },
+  {
+    status: 'CANCEL_REQUESTED',
+    title: 'Cancellation requests',
+    description: 'Customer requests waiting for review.',
+  },
+  {
     status: 'COMPLETED',
     title: 'Completed orders',
     description: 'Orders marked as fulfilled.',
@@ -51,6 +61,11 @@ const statusSections: { status: BookingStatus; title: string; description: strin
     status: 'CANCELLED',
     title: 'Rejected / cancelled orders',
     description: 'Orders you rejected or cancellations that were approved.',
+  },
+  {
+    status: 'EXPIRED',
+    title: 'Expired orders',
+    description: 'Uncollected orders restored by policy.',
   },
 ];
 
@@ -101,6 +116,16 @@ export default function StoreOwnerOrdersPage() {
     enabled: isAuthorized,
   });
 
+  const bookingsByStatus = useMemo(() => {
+    return statusSections.reduce(
+      (groups, section) => {
+        groups[section.status] = bookings.filter((booking) => booking.status === section.status);
+        return groups;
+      },
+      {} as Record<BookingStatus, Booking[]>,
+    );
+  }, [bookings]);
+
   if (isAuthLoading || !isAuthorized) {
     return (
       <PageContainer>
@@ -111,16 +136,6 @@ export default function StoreOwnerOrdersPage() {
       </PageContainer>
     );
   }
-
-  const bookingsByStatus = useMemo(() => {
-    return statusSections.reduce(
-      (groups, section) => {
-        groups[section.status] = bookings.filter((booking) => booking.status === section.status);
-        return groups;
-      },
-      {} as Record<BookingStatus, Booking[]>,
-    );
-  }, [bookings]);
 
   const replaceBooking = (nextBooking: Booking) => {
     setBookings((current) =>
@@ -226,7 +241,9 @@ export default function StoreOwnerOrdersPage() {
                 <section key={section.status}>
                   <div className="mb-4">
                     <h2 className="text-xl font-semibold text-foreground">{section.title}</h2>
-                    <p className="mt-1 text-sm font-medium text-foreground-secondary">{section.description}</p>
+                    <p className="mt-1 text-sm font-medium text-foreground-secondary">
+                      {section.description}
+                    </p>
                   </div>
 
                   {sectionBookings.length === 0 ? (
@@ -264,7 +281,7 @@ export default function StoreOwnerOrdersPage() {
                             </span>
                           </div>
 
-                          {booking.cancellationRequestedAt && booking.status !== 'CANCELLED' ? (
+                          {booking.status === 'CANCEL_REQUESTED' ? (
                             <p className="mt-4 text-sm font-medium text-amber-800">
                               Customer requested cancellation
                             </p>
@@ -280,7 +297,9 @@ export default function StoreOwnerOrdersPage() {
                                   <p className="font-bold text-foreground">
                                     {bookingItem.item.name}
                                   </p>
-                                  <p className="mt-1 text-foreground-secondary">Qty {bookingItem.quantity}</p>
+                                  <p className="mt-1 text-foreground-secondary">
+                                    Qty {bookingItem.quantity}
+                                  </p>
                                 </div>
                                 <p className="font-bold text-foreground">
                                   Rs.{' '}
@@ -327,6 +346,24 @@ export default function StoreOwnerOrdersPage() {
                               <button
                                 className={secondaryButtonClass}
                                 disabled={busyId === booking.id}
+                                onClick={() => void handleStatusUpdate(booking.id, 'READY')}
+                                type="button"
+                              >
+                                {busyId === booking.id ? (
+                                  <>
+                                    <LoadingSpinner />
+                                    Saving
+                                  </>
+                                ) : (
+                                  'Mark ready'
+                                )}
+                              </button>
+                            ) : null}
+
+                            {booking.status === 'READY' && !booking.cancellationRequestedAt ? (
+                              <button
+                                className={secondaryButtonClass}
+                                disabled={busyId === booking.id}
                                 onClick={() => void handleStatusUpdate(booking.id, 'COMPLETED')}
                                 type="button"
                               >
@@ -341,9 +378,7 @@ export default function StoreOwnerOrdersPage() {
                               </button>
                             ) : null}
 
-                            {booking.cancellationRequestedAt &&
-                            booking.status !== 'CANCELLED' &&
-                            booking.status !== 'COMPLETED' ? (
+                            {booking.status === 'CANCEL_REQUESTED' ? (
                               <div className="flex flex-wrap justify-end gap-3">
                                 <button
                                   className={primaryButtonClass}

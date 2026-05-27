@@ -4,7 +4,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { use, useEffect, useState } from 'react';
 
-import { MarketSurface, primaryButtonClass, secondaryButtonClass } from '@/components/marketplace-ui';
+import {
+  MarketSurface,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from '@/components/marketplace-ui';
 import { ApiError } from '@/services/api';
 import { getBooking } from '@/services/bookings';
 import type { Booking } from '@/types/booking';
@@ -48,7 +52,9 @@ export default function BookingSuccessPage({ params }: BookingSuccessPageProps) 
         <p className="text-sm font-medium uppercase tracking-wide text-accent">Booking created</p>
         <h1 className="mt-2 text-2xl font-semibold text-foreground">Checkout successful</h1>
 
-        {isLoading ? <p className="mt-8 text-sm text-foreground-secondary">Loading booking...</p> : null}
+        {isLoading ? (
+          <p className="mt-8 text-sm text-foreground-secondary">Loading booking...</p>
+        ) : null}
         {message ? <p className="mt-8 text-sm text-foreground-secondary">{message}</p> : null}
 
         {booking ? (
@@ -69,7 +75,9 @@ export default function BookingSuccessPage({ params }: BookingSuccessPageProps) 
                 Total: Rs. {Number(booking.totalAmount).toFixed(2)}
               </p>
               {booking.cancellationRequestedAt && booking.status !== 'CANCELLED' ? (
-                <p className="mt-3 text-sm font-medium text-foreground-secondary">Cancellation requested</p>
+                <p className="mt-3 text-sm font-medium text-foreground-secondary">
+                  Cancellation requested
+                </p>
               ) : null}
             </div>
 

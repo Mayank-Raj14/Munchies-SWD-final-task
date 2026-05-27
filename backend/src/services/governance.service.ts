@@ -2,6 +2,7 @@ import { Prisma, Role, WarningType } from '@prisma/client';
 
 import { prisma } from '../prisma/client.js';
 import { AppError } from '../utils/app-error.js';
+import { getStoreSender, sendUserEmail } from './email.service.js';
 
 type UserContext = {
   id: string;
@@ -120,8 +121,10 @@ export const issueWarning = async ({
 }) => {
   await assertUserExists(userId, db);
 
+  let warning;
+
   if (bookingId) {
-    return db.warning.upsert({
+    warning = await db.warning.upsert({
       where: { bookingId },
       create: {
         userId,
@@ -134,18 +137,48 @@ export const issueWarning = async ({
       update: {},
       include: warningInclude,
     });
+  } else {
+    warning = await db.warning.create({
+      data: {
+        userId,
+        issuedById,
+        storeId,
+        type,
+        reason,
+      },
+      include: warningInclude,
+    });
   }
 
-  return db.warning.create({
-    data: {
-      userId,
-      issuedById,
-      storeId,
-      type,
-      reason,
-    },
-    include: warningInclude,
+  const warningCount = await db.warning.count({ where: { userId } });
+  await db.user.update({
+    where: { id: userId },
+    data: { warningCount },
   });
+
+  if (warningCount >= 3) {
+    await db.globalUserBlock.upsert({
+      where: { userId },
+      create: {
+        userId,
+        blockedById: issuedById,
+        reason: 'Automatically blocked after 3 warnings',
+      },
+      update: {},
+    });
+  }
+
+  void sendUserEmail(userId, {
+    subject: warningCount >= 3 ? 'Munchies account blocked' : 'Munchies warning issued',
+    text:
+      warningCount >= 3
+        ? 'Your account was automatically blocked after 3 warnings.'
+        : `Warning issued: ${reason}`,
+    topic: 'bookings',
+    fromName: 'Munchies',
+  }).catch(() => undefined);
+
+  return warning;
 };
 
 export const warnUserGlobally = async (userId: string, adminId: string, reason: string) => {
@@ -171,7 +204,7 @@ export const warnUserForStore = async (
 export const blockUserGlobally = async (userId: string, adminId: string, reason: string) => {
   await assertUserExists(userId);
 
-  return prisma.globalUserBlock.upsert({
+  const block = await prisma.globalUserBlock.upsert({
     where: { userId },
     create: {
       userId,
@@ -183,10 +216,19 @@ export const blockUserGlobally = async (userId: string, adminId: string, reason:
       reason,
     },
     include: {
-      user: { select: { id: true, name: true, email: true } },
+      blockedUser: { select: { id: true, name: true, email: true } },
       blockedBy: { select: { id: true, name: true, email: true } },
     },
   });
+
+  void sendUserEmail(userId, {
+    subject: 'Munchies account blocked',
+    text: `Your account was blocked. Reason: ${reason}`,
+    topic: 'bookings',
+    fromName: 'Munchies Admin',
+  }).catch(() => undefined);
+
+  return block;
 };
 
 export const unblockUserGlobally = async (userId: string) => {
@@ -204,7 +246,7 @@ export const blockUserForStore = async (
   await ensureStoreGovernanceAccess(storeId, actor);
   await assertUserExists(userId);
 
-  return prisma.storeUserBlock.upsert({
+  const block = await prisma.storeUserBlock.upsert({
     where: {
       userId_storeId: {
         userId,
@@ -222,11 +264,21 @@ export const blockUserForStore = async (
       reason,
     },
     include: {
-      user: { select: { id: true, name: true, email: true } },
+      blockedUser: { select: { id: true, name: true, email: true } },
       store: { select: { id: true, name: true } },
       blockedBy: { select: { id: true, name: true, email: true } },
     },
   });
+
+  const sender = await getStoreSender(storeId);
+  void sendUserEmail(userId, {
+    subject: 'Munchies store access blocked',
+    text: `You were blocked from ${block.store.name}. Reason: ${reason}`,
+    topic: 'bookings',
+    ...sender,
+  }).catch(() => undefined);
+
+  return block;
 };
 
 export const unblockUserForStore = async (storeId: string, userId: string, actor: UserContext) => {

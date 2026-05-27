@@ -7,6 +7,7 @@ export type SyncDomain =
   | 'auth'
   | 'bookings'
   | 'cart'
+  | 'campaigns'
   | 'hostels'
   | 'inventory'
   | 'ownership'
@@ -39,6 +40,10 @@ export const notifyDataChanged = (domains: SyncDomain | SyncDomain[]) => {
   };
 
   window.dispatchEvent(new CustomEvent<SyncPayload>(SYNC_EVENT, { detail: payload }));
+
+  if (payload.domains.includes('auth') || payload.domains.includes('all')) {
+    window.dispatchEvent(new Event('munchies-auth-refresh-requested'));
+  }
 
   try {
     window.localStorage.setItem(SYNC_STORAGE_KEY, JSON.stringify(payload));

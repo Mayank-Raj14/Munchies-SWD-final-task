@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ChevronRight, Clock3, MapPin, Store } from 'lucide-react';
+import { ChevronRight, Clock3, MapPin, PackageCheck, Star, Store } from 'lucide-react';
 
 import type { Store as StoreType } from '@/types/store';
 
@@ -21,6 +21,13 @@ function getHeaderTone(name: string) {
 export function StoreCard({ store, variant = 'list' }: StoreCardProps) {
   const initial = store.name.trim().charAt(0).toUpperCase() || 'M';
   const headerTone = getHeaderTone(store.name);
+  const itemCount = store._count?.items ?? store.items?.length ?? 0;
+  const orderCount = store._count?.bookings ?? 0;
+  const availableItems =
+    store.items?.filter((item) => item.isAvailable && item.stock > 0).length ?? 0;
+  const categories = Array.from(
+    new Set(store.items?.map((item) => item.category).filter(Boolean)),
+  ).slice(0, 2);
 
   if (variant === 'grid') {
     return (
@@ -40,7 +47,17 @@ export function StoreCard({ store, variant = 'list' }: StoreCardProps) {
         <div className="flex flex-1 flex-col p-3.5">
           <h2 className="truncate text-base font-semibold text-foreground">{store.name}</h2>
           <p className="mt-0.5 text-xs text-foreground-muted">Room {store.roomNumber}</p>
-          <p className="mt-2 text-[11px] text-foreground-faint">by {store.owner.name}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] text-foreground-muted">
+            <span className="inline-flex items-center gap-1 rounded-md bg-surface-raised px-2 py-0.5">
+              <Star className="h-3 w-3 text-amber-400" aria-hidden="true" />
+              {orderCount > 0 ? 'Popular' : 'New'}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-md bg-surface-raised px-2 py-0.5">
+              <PackageCheck className="h-3 w-3 text-accent" aria-hidden="true" />
+              {itemCount} items
+            </span>
+          </div>
+          <p className="mt-auto pt-3 text-[11px] text-foreground-faint">by {store.owner.name}</p>
         </div>
       </Link>
     );
@@ -79,11 +96,15 @@ export function StoreCard({ store, variant = 'list' }: StoreCardProps) {
         <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-foreground-faint">
           <span className="inline-flex items-center gap-1 rounded-md bg-surface-raised px-2 py-0.5">
             <Store className="h-3 w-3" aria-hidden="true" />
-            Hostel store
+            {categories.length > 0 ? categories.join(', ') : 'Hostel store'}
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-md bg-surface-raised px-2 py-0.5">
+            <Star className="h-3 w-3 text-amber-400" aria-hidden="true" />
+            {orderCount > 0 ? `${orderCount} orders` : 'New'}
           </span>
           <span className="inline-flex items-center gap-1">
             <Clock3 className="h-3 w-3" aria-hidden="true" />
-            Pickup on campus
+            {availableItems > 0 ? `${availableItems} available now` : 'Pickup on campus'}
           </span>
         </div>
       </div>

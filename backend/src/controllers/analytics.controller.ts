@@ -16,6 +16,7 @@ export const getAnalyticsForStore = async (req: AuthenticatedRequest, res: Respo
   const analytics = await getStoreAnalytics(req.params.storeId ?? '', req.user!, {
     dateFrom: req.query.dateFrom ? new Date(String(req.query.dateFrom)) : undefined,
     dateTo: req.query.dateTo ? new Date(String(req.query.dateTo)) : undefined,
+    lowStockThreshold: req.query.lowStockThreshold ? Number(req.query.lowStockThreshold) : undefined,
   });
 
   res.status(200).json({ analytics });

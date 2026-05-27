@@ -6,6 +6,7 @@ export type Item = {
   imageUrl?: string | null;
   price: string;
   stock: number;
+  isAvailable: boolean;
   storeId: string;
   createdAt: string;
   updatedAt: string;

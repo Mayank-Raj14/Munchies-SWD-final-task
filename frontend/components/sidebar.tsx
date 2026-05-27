@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
+  BarChart3,
   ClipboardList,
   LogOut,
   PackageSearch,
@@ -14,6 +15,7 @@ import {
   Store,
   User,
   LayoutGrid,
+  BadgePercent,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -43,7 +45,13 @@ const primaryItems: SidebarItem[] = [
 
 const accountItems: SidebarItem[] = [
   { href: '/profile', label: 'Profile', icon: User, roles: ['USER', 'STORE_OWNER', 'ADMIN'] },
-  { href: '/store-owner-request', label: 'Sell', icon: ScrollText, roles: ['USER'] },
+  {
+    href: '/analytics',
+    label: 'Analytics',
+    icon: BarChart3,
+    roles: ['USER', 'STORE_OWNER', 'ADMIN'],
+  },
+  { href: '/store-owner-request', label: 'Seller onboarding', icon: ScrollText, roles: ['USER'] },
   {
     href: '/store-owner/stores',
     label: 'My stores',
@@ -66,7 +74,21 @@ const accountItems: SidebarItem[] = [
     match: 'startsWith',
   },
   {
-    href: '/admin/store-owner-requests',
+    href: '/store-owner/campaigns',
+    label: 'Campaigns',
+    icon: BadgePercent,
+    roles: ['STORE_OWNER', 'ADMIN'],
+    match: 'startsWith',
+  },
+  {
+    href: '/store-owner/analytics',
+    label: 'Seller analytics',
+    icon: BarChart3,
+    roles: ['STORE_OWNER', 'ADMIN'],
+    match: 'startsWith',
+  },
+  {
+    href: '/admin',
     label: 'Admin',
     icon: ShieldCheck,
     roles: ['ADMIN'],
@@ -125,7 +147,10 @@ export function Sidebar() {
 
   const visiblePrimary = primaryItems.filter((item) => canSeeItem(item, user));
   const visibleAccount = accountItems.filter((item) => canSeeItem(item, user));
-  const mobileItems = visiblePrimary.slice(0, 4);
+  const activeAccountItem = visibleAccount.find((item) => isActiveItem(item, pathname));
+  const mobileItems = activeAccountItem
+    ? [...visiblePrimary.slice(0, 3), activeAccountItem]
+    : [...visiblePrimary.slice(0, 3), ...visibleAccount.slice(0, 1)].slice(0, 4);
 
   const handleLogout = () => {
     logout();
@@ -156,13 +181,22 @@ export function Sidebar() {
           {visibleAccount.length > 0 ? (
             <div className="mt-5">
               <p className="mb-1.5 px-2.5 text-[10px] font-medium uppercase tracking-wider text-foreground-faint">
-                More
+                Account
               </p>
               <div className="space-y-0.5">
                 {visibleAccount.map((item) => (
                   <NavLink item={item} key={item.href} />
                 ))}
               </div>
+            </div>
+          ) : null}
+
+          {user?.role === 'STORE_OWNER' || user?.role === 'ADMIN' ? (
+            <div className="mt-3 rounded-xl border border-accent/20 bg-accent-muted p-2.5">
+              <p className="text-[11px] font-semibold text-accent">Seller mode active</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-foreground-muted">
+                Store, inventory, and order tools are unlocked.
+              </p>
             </div>
           ) : null}
 

@@ -2,6 +2,7 @@ import { BookingStatus, WarningType } from '@prisma/client';
 
 import { prisma } from '../prisma/client.js';
 import { expireBookingWithRestock } from '../services/booking.service.js';
+import { getStoreSender, sendUserEmail } from '../services/email.service.js';
 import { issueWarning } from '../services/governance.service.js';
 
 const EXPIRY_BATCH_SIZE = 50;
@@ -9,7 +10,14 @@ const EXPIRY_BATCH_SIZE = 50;
 export const expireUncollectedOrders = async (now = new Date()) => {
   const expiredBookings = await prisma.booking.findMany({
     where: {
-      status: BookingStatus.PENDING,
+      status: {
+        in: [
+          BookingStatus.PENDING,
+          BookingStatus.CONFIRMED,
+          BookingStatus.READY,
+          BookingStatus.CANCEL_REQUESTED,
+        ],
+      },
       expiresAt: { lte: now },
       inventoryRestoredAt: null,
       expiredWarningIssuedAt: null,
@@ -28,7 +36,7 @@ export const expireUncollectedOrders = async (now = new Date()) => {
       const cancelled = await expireBookingWithRestock(booking.id, tx);
 
       if (!cancelled) {
-        return false;
+        return null;
       }
 
       await issueWarning({
@@ -50,11 +58,35 @@ export const expireUncollectedOrders = async (now = new Date()) => {
         },
       });
 
-      return true;
+      const store = await tx.store.findUnique({
+        where: { id: cancelled.storeId },
+        select: { ownerId: true },
+      });
+
+      return {
+        bookingId: cancelled.id,
+        userId: cancelled.userId,
+        ownerId: store?.ownerId,
+        storeId: cancelled.storeId,
+      };
     });
 
     if (expired) {
       expiredCount += 1;
+      void getStoreSender(expired.storeId).then((sender) => sendUserEmail(expired.userId, {
+        subject: 'Munchies order expired',
+        text: `Booking ${expired.bookingId} expired after 24 hours and inventory was restored.`,
+        topic: 'bookings',
+        ...sender,
+      })).catch(() => undefined);
+      if (expired.ownerId) {
+        void sendUserEmail(expired.ownerId, {
+          subject: 'Munchies order expired',
+          text: `Booking ${expired.bookingId} expired after 24 hours and inventory was restored.`,
+          topic: 'bookings',
+          fromName: 'Munchies',
+        }).catch(() => undefined);
+      }
     }
   }
 

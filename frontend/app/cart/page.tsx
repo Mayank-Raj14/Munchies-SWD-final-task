@@ -24,6 +24,8 @@ import { useSyncedRefresh } from '@/lib/sync-events';
 import { checkoutCart } from '@/services/bookings';
 import { ApiError, buildAssetUrl } from '@/services/api';
 import { clearCart, getCarts, removeCartItem, updateCartItem } from '@/services/carts';
+import { validateCoupon } from '@/services/campaigns';
+import type { CouponPreview } from '@/types/campaign';
 import type { Cart } from '@/types/cart';
 
 export default function CartPage() {
@@ -33,10 +35,16 @@ export default function CartPage() {
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [couponCodes, setCouponCodes] = useState<Record<string, string>>({});
+  const [couponPreviews, setCouponPreviews] = useState<Record<string, CouponPreview>>({});
 
   const grandTotal = useMemo(
-    () => carts.reduce((total, cart) => total + Number(cart.total), 0),
-    [carts],
+    () =>
+      carts.reduce(
+        (total, cart) => total + Number(couponPreviews[cart.id]?.totalAmount ?? cart.total),
+        0,
+      ),
+    [carts, couponPreviews],
   );
 
   const loadCarts = useCallback(
@@ -144,10 +152,40 @@ export default function CartPage() {
     setMessage('');
 
     try {
-      const data = await checkoutCart(cartId);
+      const data = await checkoutCart(cartId, couponPreviews[cartId]?.campaign.code);
       router.push(`/bookings/success/${data.booking.id}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to checkout cart.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleCouponPreview = async (cartId: string) => {
+    if (busyId) {
+      return;
+    }
+
+    const code = couponCodes[cartId]?.trim();
+
+    if (!code) {
+      setMessage('Enter a coupon code first.');
+      return;
+    }
+
+    setBusyId(`coupon-${cartId}`);
+    setMessage('');
+
+    try {
+      const preview = await validateCoupon({ cartId, code });
+      setCouponPreviews((current) => ({ ...current, [cartId]: preview }));
+    } catch (error) {
+      setCouponPreviews((current) => {
+        const next = { ...current };
+        delete next[cartId];
+        return next;
+      });
+      setMessage(error instanceof Error ? error.message : 'Coupon validation failed.');
     } finally {
       setBusyId(null);
     }
@@ -233,7 +271,9 @@ export default function CartPage() {
                       </div>
                       <div>
                         <h3 className="font-medium text-foreground">{cartItem.item.name}</h3>
-                        <p className="mt-1 text-sm text-foreground-secondary">{cartItem.item.category}</p>
+                        <p className="mt-1 text-sm text-foreground-secondary">
+                          {cartItem.item.category}
+                        </p>
                         <p className="mt-2 text-sm font-medium text-foreground">
                           Rs. {cartItem.item.price}
                         </p>
@@ -277,8 +317,49 @@ export default function CartPage() {
 
                 <div className="flex justify-end border-t border-border pt-4">
                   <div className="flex flex-col items-end gap-3">
+                    <div className="w-full max-w-sm">
+                      <label className="block text-left text-sm font-medium text-foreground-secondary">
+                        Coupon
+                        <div className="mt-1.5 flex gap-2">
+                          <input
+                            className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-canvas px-3 text-sm uppercase text-foreground outline-none transition focus:border-accent/40 focus:ring-2 focus:ring-accent/15"
+                            onChange={(event) => {
+                              const value = event.target.value.toUpperCase();
+                              setCouponCodes((current) => ({ ...current, [cart.id]: value }));
+                            }}
+                            placeholder="CODE"
+                            value={couponCodes[cart.id] ?? ''}
+                          />
+                          <button
+                            className={secondaryButtonClass}
+                            disabled={busyId === `coupon-${cart.id}`}
+                            onClick={() => void handleCouponPreview(cart.id)}
+                            type="button"
+                          >
+                            {busyId === `coupon-${cart.id}` ? <LoadingSpinner /> : 'Apply'}
+                          </button>
+                        </div>
+                      </label>
+                      {couponPreviews[cart.id] ? (
+                        <div className="mt-2 rounded-lg border border-accent/25 bg-accent-muted px-3 py-2 text-left text-xs font-medium text-foreground">
+                          <div className="flex justify-between gap-3">
+                            <span>Discount</span>
+                            <span>
+                              Rs. {Number(couponPreviews[cart.id].discountAmount).toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex justify-between gap-3">
+                            <span>Final total</span>
+                            <span>
+                              Rs. {Number(couponPreviews[cart.id].totalAmount).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
                     <p className="text-sm font-semibold text-foreground">
-                      Store total: Rs. {Number(cart.total).toFixed(2)}
+                      Store total: Rs.{' '}
+                      {Number(couponPreviews[cart.id]?.totalAmount ?? cart.total).toFixed(2)}
                     </p>
                     <button
                       className={primaryButtonClass}

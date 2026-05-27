@@ -3,6 +3,9 @@ import { Role, StoreOwnershipRequestStatus } from '@prisma/client';
 import { prisma } from '../prisma/client.js';
 import { AppError } from '../utils/app-error.js';
 import { assertUserNotGloballyBlocked } from './governance.service.js';
+import { invalidateStoreCaches } from './store.service.js';
+import { sendUserEmail, sendUsersEmail } from './email.service.js';
+import { syncApprovedRequestStore } from './store-ownership-sync.service.js';
 
 type CreateStoreOwnershipRequestInput = {
   userId: string;
@@ -115,7 +118,7 @@ export const listUserStoreOwnershipRequests = async (userId: string) => {
 };
 
 export const approveStoreOwnershipRequest = async (requestId: string, adminId: string) => {
-  return prisma.$transaction(async (tx) => {
+  const approvedRequest = await prisma.$transaction(async (tx) => {
     const request = await tx.storeOwnershipRequest.findUnique({
       where: { id: requestId },
       select: {
@@ -153,34 +156,7 @@ export const approveStoreOwnershipRequest = async (requestId: string, adminId: s
       throw new AppError('Store ownership request has already been reviewed', 409);
     }
 
-    const storeKey = {
-      hostelId: request.hostelId,
-      roomNumber: request.roomNumber,
-      name: request.storeName,
-    };
-
-    const existingStore = await tx.store.findUnique({
-      where: { hostelId_roomNumber_name: storeKey },
-      select: { ownerId: true },
-    });
-
-    if (existingStore && existingStore.ownerId !== request.userId) {
-      throw new AppError('A store already exists at this hostel and room with another owner', 409);
-    }
-
-    await tx.user.update({
-      where: { id: request.userId },
-      data: { role: Role.STORE_OWNER },
-    });
-
-    if (!existingStore) {
-      await tx.store.create({
-        data: {
-          ...storeKey,
-          ownerId: request.userId,
-        },
-      });
-    }
+    const storeId = await syncApprovedRequestStore(tx, request);
 
     const approvedRequest = await tx.storeOwnershipRequest.findUniqueOrThrow({
       where: { id: requestId },
@@ -207,8 +183,32 @@ export const approveStoreOwnershipRequest = async (requestId: string, adminId: s
       },
     });
 
+    invalidateStoreCaches(request.userId, storeId);
     return approvedRequest;
   });
+
+  void sendUserEmail(approvedRequest.user.id, {
+    subject: 'Your Munchies store was approved',
+    text: `${approvedRequest.storeName} is approved and now visible in Munchies.`,
+    topic: 'newStores',
+    fromName: 'Munchies',
+  }).catch(() => undefined);
+
+  const recipients = await prisma.user.findMany({
+    where: { id: { not: approvedRequest.user.id }, emailNotificationsEnabled: true },
+    select: { id: true },
+  });
+  void sendUsersEmail(
+    recipients.map((user) => user.id),
+    {
+      subject: `New Munchies store: ${approvedRequest.storeName}`,
+      text: `${approvedRequest.storeName} is now open in ${approvedRequest.hostel.name}.`,
+      topic: 'newStores',
+      fromName: 'Munchies',
+    },
+  ).catch(() => undefined);
+
+  return approvedRequest;
 };
 
 export const rejectStoreOwnershipRequest = async (requestId: string, adminId: string) => {
@@ -228,7 +228,7 @@ export const rejectStoreOwnershipRequest = async (requestId: string, adminId: st
     throw new AppError('Store ownership request has already been reviewed', 409);
   }
 
-  return prisma.$transaction(async (tx) => {
+  const rejectedRequest = await prisma.$transaction(async (tx) => {
     const updated = await tx.storeOwnershipRequest.updateMany({
       where: {
         id: requestId,
@@ -250,4 +250,13 @@ export const rejectStoreOwnershipRequest = async (requestId: string, adminId: st
       include: requestInclude,
     });
   });
+
+  void sendUserEmail(rejectedRequest.user.id, {
+    subject: 'Your Munchies store request was reviewed',
+    text: `${rejectedRequest.storeName} was not approved. You can submit a corrected request from Munchies.`,
+    topic: 'newStores',
+    fromName: 'Munchies',
+  }).catch(() => undefined);
+
+  return rejectedRequest;
 };

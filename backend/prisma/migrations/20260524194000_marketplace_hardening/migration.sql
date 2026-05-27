@@ -1,4 +1,9 @@
-CREATE TYPE "WarningType" AS ENUM ('MANUAL', 'ORDER_EXPIRED');
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'WarningType') THEN
+    CREATE TYPE "WarningType" AS ENUM ('MANUAL', 'ORDER_EXPIRED');
+  END IF;
+END $$;
 
 ALTER TABLE "Item"
 ADD COLUMN "isAvailable" BOOLEAN NOT NULL DEFAULT true;

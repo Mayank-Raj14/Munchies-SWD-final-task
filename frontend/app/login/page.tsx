@@ -41,7 +41,9 @@ export default function LoginPage() {
 
       setUserFromAuth(result.user);
 
-      await refreshUser();
+      // Refresh user to sync latest role from backend
+      // This ensures admin role is immediately visible after promotion
+      await refreshUser({ silent: false });
 
       router.replace('/');
     } catch (error) {
@@ -57,7 +59,7 @@ export default function LoginPage() {
 
   return (
     <main className="bg-grid-soft relative flex min-h-screen items-center justify-center overflow-hidden bg-[#09090b] px-4 py-10 sm:px-6">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(251,191,36,0.08),transparent_22%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(251,191,36,0.08),transparent_40%)]" />
       <section className={authShellClass}>
         <AuthHero
           eyebrow="Campus commerce"

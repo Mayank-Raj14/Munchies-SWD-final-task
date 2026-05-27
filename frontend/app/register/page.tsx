@@ -36,7 +36,11 @@ export default function RegisterPage() {
       });
       saveAuthToken(result.token);
       setUserFromAuth(result.user);
-      await refreshUser();
+
+      // Refresh user to sync latest role from backend
+      // This ensures admin role is immediately visible after promotion
+      await refreshUser({ silent: false });
+
       router.replace('/');
     } catch (error) {
       setMessage(
@@ -51,7 +55,7 @@ export default function RegisterPage() {
 
   return (
     <main className="bg-grid-soft relative flex min-h-screen items-center justify-center overflow-hidden bg-[#09090b] px-4 py-10 sm:px-6">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.14),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.05),transparent_24%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.14),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.04),transparent_30%)]" />
       <section className={authShellClass}>
         <AuthHero
           eyebrow="New account"

@@ -54,7 +54,10 @@ const syncPlatformAdminRole = async (userId: string, email: string, role: Role) 
     return role;
   }
 
-  const isPlatformAdmin = email.trim().toLowerCase() === platformAdminEmail;
+  const normalizedUserEmail = normalizeEmail(email);
+  const isPlatformAdmin = normalizedUserEmail === platformAdminEmail;
+  
+  // Only update if user is the platform admin AND doesn't already have ADMIN role
   if (!isPlatformAdmin || role === Role.ADMIN) {
     return role;
   }

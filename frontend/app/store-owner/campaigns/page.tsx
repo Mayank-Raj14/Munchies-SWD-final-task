@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { BadgePercent, Megaphone, Pencil, X } from 'lucide-react';
+import { BadgePercent, Megaphone, Pencil, Trash2, X } from 'lucide-react';
 
 import {
   EmptyState,
@@ -19,7 +19,13 @@ import {
 } from '@/components/marketplace-ui';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useSyncedRefresh } from '@/lib/sync-events';
-import { createCampaign, deactivateCampaign, getCampaigns, updateCampaign } from '@/services/campaigns';
+import {
+  createCampaign,
+  deleteCampaign,
+  getCampaigns,
+  toggleCampaignActive,
+  updateCampaign,
+} from '@/services/campaigns';
 import { getStoreItems } from '@/services/items';
 import { getMyStores } from '@/services/stores';
 import type { Campaign } from '@/types/campaign';
@@ -40,6 +46,7 @@ export default function CampaignsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const selectedStore = useMemo(
     () => stores.find((store) => store.id === storeId),
@@ -182,7 +189,7 @@ export default function CampaignsPage() {
     setSelectedItemIds([...(campaign.targetedItems ?? []).map((entry) => entry.itemId)]);
   };
 
-  const handleDeactivate = async (campaignId: string) => {
+  const handleToggleActive = async (campaignId: string, currentIsActive: boolean) => {
     if (busyId) {
       return;
     }
@@ -192,16 +199,39 @@ export default function CampaignsPage() {
     setError('');
 
     try {
-      const data = await deactivateCampaign(campaignId);
+      const data = await toggleCampaignActive(campaignId, !currentIsActive);
       setCampaigns((current) =>
         current.map((campaign) => (campaign.id === campaignId ? data.campaign : campaign)),
       );
-      setMessage(`${data.campaign.code} deactivated.`);
-    } catch (deactivateError) {
+      setMessage(
+        `${data.campaign.code} ${data.campaign.isActive ? 'activated' : 'deactivated'}.`,
+      );
+    } catch (toggleError) {
       setError(
-        deactivateError instanceof Error
-          ? deactivateError.message
-          : 'Unable to deactivate campaign.',
+        toggleError instanceof Error ? toggleError.message : 'Unable to update campaign status.',
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleDelete = async (campaignId: string) => {
+    if (busyId) {
+      return;
+    }
+
+    setBusyId(campaignId);
+    setMessage('');
+    setError('');
+    setDeleteConfirmId(null);
+
+    try {
+      const data = await deleteCampaign(campaignId);
+      setCampaigns((current) => current.filter((campaign) => campaign.id !== campaignId));
+      setMessage(`Campaign ${data.campaign.code} deleted.`);
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error ? deleteError.message : 'Unable to delete campaign.',
       );
     } finally {
       setBusyId(null);
@@ -380,25 +410,77 @@ export default function CampaignsPage() {
                     <span>{new Date(campaign.endsAt).toLocaleDateString()}</span>
                   </div>
                   <p className="mt-2 text-xs text-foreground-muted">
-                    {campaign.targetedItems?.length ? `${campaign.targetedItems.length} targeted item(s)` : 'Store-wide coupon'}
+                    {campaign.targetedItems?.length
+                      ? `${campaign.targetedItems.length} targeted item(s)`
+                      : 'Store-wide coupon'}
                   </p>
-                  <div className="mt-4 flex gap-2">
-                    <button className={secondaryButtonClass} onClick={() => handleEdit(campaign)} type="button">
-                      <Pencil className="h-4 w-4" />
-                      Edit
-                    </button>
-                    {campaign.isActive ? (
+
+                  {deleteConfirmId === campaign.id ? (
+                    <div className="mt-4 rounded-lg border border-border-danger bg-surface-danger/5 p-3">
+                      <p className="text-sm text-foreground-secondary">
+                        Delete "{campaign.code}"? This cannot be undone.
+                      </p>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          className={`${secondaryButtonClass} flex-1 text-xs`}
+                          disabled={busyId === campaign.id}
+                          onClick={() => void handleDelete(campaign.id)}
+                          type="button"
+                        >
+                          {busyId === campaign.id ? (
+                            <LoadingSpinner className="h-3 w-3" />
+                          ) : (
+                            'Confirm Delete'
+                          )}
+                        </button>
+                        <button
+                          className={`${secondaryButtonClass} flex-1 text-xs`}
+                          disabled={busyId === campaign.id}
+                          onClick={() => setDeleteConfirmId(null)}
+                          type="button"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4 flex items-center justify-between gap-2">
                       <button
                         className={secondaryButtonClass}
-                        disabled={busyId === campaign.id}
-                        onClick={() => void handleDeactivate(campaign.id)}
+                        disabled={busyId === campaign.id || editingCampaignId === campaign.id}
+                        onClick={() => handleEdit(campaign)}
                         type="button"
                       >
-                        {busyId === campaign.id ? <LoadingSpinner /> : null}
-                        Deactivate
+                        <Pencil className="h-4 w-4" />
+                        Edit
                       </button>
-                    ) : null}
-                  </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          className={secondaryButtonClass}
+                          disabled={busyId === campaign.id}
+                          onClick={() =>
+                            void handleToggleActive(campaign.id, campaign.isActive)
+                          }
+                          type="button"
+                        >
+                          {busyId === campaign.id ? (
+                            <LoadingSpinner className="h-3 w-3" />
+                          ) : null}
+                          {campaign.isActive ? 'Deactivate' : 'Activate'}
+                        </button>
+                        <button
+                          aria-label="Delete campaign"
+                          className={secondaryButtonClass}
+                          disabled={busyId === campaign.id}
+                          onClick={() => setDeleteConfirmId(campaign.id)}
+                          type="button"
+                          title="Delete campaign"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </article>
               ))}
             </div>

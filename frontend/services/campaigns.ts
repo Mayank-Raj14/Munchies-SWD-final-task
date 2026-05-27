@@ -46,11 +46,12 @@ export const createCampaign = async (payload: CampaignPayload) => {
   return data;
 };
 
-export const deactivateCampaign = async (campaignId: string) => {
+export const toggleCampaignActive = async (campaignId: string, isActive: boolean) => {
   const url = buildApiUrl(API_ROUTES.campaigns.deactivate(campaignId));
   const response = await apiFetch(url, {
     method: 'PATCH',
     headers: authHeaders(),
+    body: JSON.stringify({ isActive }),
   });
 
   const data = await parseApiResponse<{ campaign: Campaign }>(response, 'Campaign request failed', {
@@ -59,6 +60,10 @@ export const deactivateCampaign = async (campaignId: string) => {
   });
   notifyDataChanged(['campaigns', 'stores']);
   return data;
+};
+
+export const deactivateCampaign = async (campaignId: string) => {
+  return toggleCampaignActive(campaignId, false);
 };
 
 export const updateCampaign = async (campaignId: string, payload: Partial<CampaignPayload>) => {
@@ -72,6 +77,21 @@ export const updateCampaign = async (campaignId: string, payload: Partial<Campai
   const data = await parseApiResponse<{ campaign: Campaign }>(response, 'Campaign request failed', {
     url,
     method: 'PATCH',
+  });
+  notifyDataChanged(['campaigns', 'stores']);
+  return data;
+};
+
+export const deleteCampaign = async (campaignId: string) => {
+  const url = buildApiUrl(API_ROUTES.campaigns.delete(campaignId));
+  const response = await apiFetch(url, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+
+  const data = await parseApiResponse<{ campaign: Campaign }>(response, 'Campaign request failed', {
+    url,
+    method: 'DELETE',
   });
   notifyDataChanged(['campaigns', 'stores']);
   return data;

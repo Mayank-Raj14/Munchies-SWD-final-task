@@ -3,8 +3,9 @@ import type { Response } from 'express';
 import type { AuthenticatedRequest } from '../middleware/auth.middleware.js';
 import {
   createCampaign,
-  deactivateCampaign,
+  deleteCampaign,
   listCampaignsForStore,
+  toggleCampaign,
   updateCampaign,
   validateCouponForCart,
 } from '../services/campaign.service.js';
@@ -27,8 +28,15 @@ export const updateStoreCampaign = async (req: AuthenticatedRequest, res: Respon
   res.status(200).json({ campaign });
 };
 
-export const deactivateStoreCampaign = async (req: AuthenticatedRequest, res: Response) => {
-  const campaign = await deactivateCampaign(req.params.campaignId ?? '', req.user!);
+export const toggleStoreCampaign = async (req: AuthenticatedRequest, res: Response) => {
+  const isActive = req.body.isActive !== false;
+  const campaign = await toggleCampaign(req.params.campaignId ?? '', req.user!, isActive);
+
+  res.status(200).json({ campaign });
+};
+
+export const deleteStoreCampaign = async (req: AuthenticatedRequest, res: Response) => {
+  const campaign = await deleteCampaign(req.params.campaignId ?? '', req.user!);
 
   res.status(200).json({ campaign });
 };

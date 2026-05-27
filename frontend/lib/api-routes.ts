@@ -38,6 +38,7 @@ export const API_ROUTES = {
     validate: '/campaigns/validate',
     byId: (campaignId: string) => `/campaigns/${campaignId}`,
     deactivate: (campaignId: string) => `/campaigns/${campaignId}/deactivate`,
+    delete: (campaignId: string) => `/campaigns/${campaignId}`,
   },
   analytics: {
     me: '/analytics/users/me',

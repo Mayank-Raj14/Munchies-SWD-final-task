@@ -3,8 +3,9 @@ import { Router } from 'express';
 
 import {
   createStoreCampaign,
-  deactivateStoreCampaign,
+  deleteStoreCampaign,
   getStoreCampaigns,
+  toggleStoreCampaign,
   updateStoreCampaign,
   validateCoupon,
 } from '../controllers/campaign.controller.js';
@@ -50,5 +51,11 @@ campaignRouter.patch(
   '/:campaignId/deactivate',
   requireRole(Role.STORE_OWNER, Role.ADMIN),
   validateRequest(campaignParamSchema),
-  asyncHandler(deactivateStoreCampaign),
+  asyncHandler(toggleStoreCampaign),
+);
+campaignRouter.delete(
+  '/:campaignId',
+  requireRole(Role.STORE_OWNER, Role.ADMIN),
+  validateRequest(campaignParamSchema),
+  asyncHandler(deleteStoreCampaign),
 );

@@ -293,7 +293,11 @@ export const updateCampaign = async (
   return campaign;
 };
 
-export const deactivateCampaign = async (campaignId: string, user: UserContext) => {
+export const toggleCampaign = async (
+  campaignId: string,
+  user: UserContext,
+  isActive: boolean,
+) => {
   const existing = await prisma.campaign.findUnique({
     where: { id: campaignId },
     select: { storeId: true, code: true },
@@ -308,9 +312,30 @@ export const deactivateCampaign = async (campaignId: string, user: UserContext) 
   const campaign = await prisma.campaign.update({
     where: { id: campaignId },
     data: {
-      isActive: false,
-      endsAt: new Date(),
+      isActive,
+      ...(isActive ? {} : { endsAt: new Date() }),
     },
+    include: campaignInclude,
+  });
+
+  invalidateCampaignCaches(existing.storeId, existing.code);
+  return campaign;
+};
+
+export const deleteCampaign = async (campaignId: string, user: UserContext) => {
+  const existing = await prisma.campaign.findUnique({
+    where: { id: campaignId },
+    select: { storeId: true, code: true },
+  });
+
+  if (!existing) {
+    throw new AppError('Campaign not found', 404);
+  }
+
+  await assertCampaignStoreAccess(existing.storeId, user);
+
+  const campaign = await prisma.campaign.delete({
+    where: { id: campaignId },
     include: campaignInclude,
   });
 

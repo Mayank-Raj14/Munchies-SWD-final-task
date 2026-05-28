@@ -16,9 +16,12 @@ import {
   User,
   LayoutGrid,
   BadgePercent,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import { primaryButtonClass, secondaryButtonClass } from '@/components/marketplace-ui';
 import { BrandMark } from '@/components/brand-assets';
@@ -98,9 +101,7 @@ const accountItems: SidebarItem[] = [
 ];
 
 const canSeeItem = (item: SidebarItem, user: AuthUser | null) => {
-  if (!item.roles) {
-    return true;
-  }
+  if (!item.roles) return true;
   return user ? item.roles.includes(user.role) : false;
 };
 
@@ -111,36 +112,61 @@ const isActiveItem = (item: SidebarItem, pathname: string) => {
   return pathname === item.href;
 };
 
-function NavLink({ item }: { item: SidebarItem }) {
+function NavLink({ item, collapsed }: { item: SidebarItem; collapsed: boolean }) {
   const pathname = usePathname();
   const Icon = item.icon;
   const isActive = isActiveItem(item, pathname);
 
   return (
     <Link
-      className={`relative flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium transition-all duration-ui ${
+      className={`group relative flex h-9.5 items-center gap-2.5 rounded-xl px-3 text-[13px] font-semibold transition-colors duration-150 ${
         isActive
-          ? 'bg-accent-muted text-accent shadow-subtle'
+          ? 'text-accent'
           : 'text-foreground-secondary hover:bg-surface-hover hover:text-foreground'
       }`}
       href={item.href}
     >
+      {/* Sliding active pill */}
       {isActive ? (
-        <span
-          aria-hidden="true"
-          className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-accent"
+        <motion.span
+          layoutId="sidebar-active-pill"
+          className="absolute inset-0 rounded-xl bg-accent-muted border-l-2 border-accent shadow-[inset_0_0_12px_-4px_color-mix(in_srgb,var(--accent)_15%,transparent)]"
+          transition={{ type: 'spring', stiffness: 420, damping: 32 }}
         />
       ) : null}
+
       <Icon
-        className={`ml-0.5 h-[15px] w-[15px] shrink-0 ${isActive ? 'text-accent' : 'text-foreground-muted'}`}
+        className={`relative z-10 ml-0.5 h-[16px] w-[16px] shrink-0 transition-all duration-150 group-hover:scale-110 ${
+          isActive ? 'text-accent drop-shadow-[0_0_6px_color-mix(in_srgb,var(--accent)_60%,transparent)]' : 'text-foreground-muted group-hover:text-foreground'
+        }`}
         aria-hidden="true"
       />
-      <span className="truncate">{item.label}</span>
+
+      <AnimatePresence mode="wait" initial={false}>
+        {!collapsed ? (
+          <motion.span
+            key="label"
+            initial={{ opacity: 0, x: -6 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -6 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 30, duration: 0.18 }}
+            className="relative z-10 truncate"
+          >
+            {item.label}
+          </motion.span>
+        ) : null}
+      </AnimatePresence>
     </Link>
   );
 }
 
-export function Sidebar() {
+export function Sidebar({
+  collapsed,
+  setCollapsed,
+}: {
+  collapsed: boolean;
+  setCollapsed: (val: boolean) => void;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, isLoading, logout } = useAuth();
@@ -160,45 +186,102 @@ export function Sidebar() {
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-sidebar flex-col border-r border-border-subtle bg-surface lg:flex">
-        <div className="flex h-12 items-center px-4">
+      {/* Desktop sidebar */}
+      <motion.aside
+        animate={{ width: collapsed ? '4.75rem' : '15rem' }}
+        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+        className="fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-border-subtle bg-surface/95 lg:flex shadow-sm backdrop-blur-sm"
+      >
+        {/* Header */}
+        <div className="relative flex h-14 items-center justify-between px-4 border-b border-border-subtle">
           <Link className="flex min-w-0 items-center" href="/">
-            <BrandMark compact />
+            <BrandMark compact={collapsed} />
           </Link>
+
+          {/* Collapse toggle */}
+          <motion.button
+            onClick={() => setCollapsed(!collapsed)}
+            whileHover={{ scale: 1.12 }}
+            whileTap={{ scale: 0.88 }}
+            className="absolute -right-3.5 top-[18px] flex h-7 w-7 items-center justify-center rounded-full border border-border bg-surface shadow-subtle text-foreground-muted hover:text-foreground hover:bg-surface-raised hover:border-border-strong hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3)] will-change-transform transition-all duration-150"
+            type="button"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? (
+              <ChevronRight className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronLeft className="h-3.5 w-3.5" />
+            )}
+          </motion.button>
         </div>
 
-        <nav className="flex flex-1 flex-col overflow-y-auto px-2.5 pb-2">
+        {/* Navigation */}
+        <nav className="flex flex-1 flex-col overflow-y-auto px-3 pb-3 pt-4 scrollbar-none">
           <div className="space-y-0.5">
             {visiblePrimary.map((item) => (
-              <NavLink item={item} key={`${item.href}-${item.label}`} />
+              <NavLink item={item} collapsed={collapsed} key={`${item.href}-${item.label}`} />
             ))}
           </div>
 
           {visibleAccount.length > 0 ? (
-            <div className="mt-5">
-              <p className="mb-1.5 px-2.5 text-[10px] font-medium uppercase tracking-wider text-foreground-faint">
-                Account
-              </p>
+            <div className="mt-6">
+              <AnimatePresence mode="wait" initial={false}>
+                {!collapsed ? (
+                  <motion.p
+                    key="account-label"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-foreground-faint"
+                  >
+                    Account
+                  </motion.p>
+                ) : (
+                  <motion.div
+                    key="account-divider"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="border-t border-border-subtle my-3"
+                  />
+                )}
+              </AnimatePresence>
+
               <div className="space-y-0.5">
                 {visibleAccount.map((item) => (
-                  <NavLink item={item} key={item.href} />
+                  <NavLink item={item} collapsed={collapsed} key={item.href} />
                 ))}
               </div>
             </div>
           ) : null}
 
-          {user?.role === 'STORE_OWNER' || user?.role === 'ADMIN' ? (
-            <div className="mt-3 rounded-xl border border-accent/20 bg-accent-muted p-2.5">
-              <p className="text-[11px] font-semibold text-accent">Seller mode active</p>
-              <p className="mt-1 text-[11px] leading-relaxed text-foreground-muted">
-                Store, inventory, and order tools are unlocked.
-              </p>
-            </div>
-          ) : null}
+          {/* Seller badge */}
+          <AnimatePresence>
+            {(user?.role === 'STORE_OWNER' || user?.role === 'ADMIN') && !collapsed ? (
+              <motion.div
+                key="seller-badge"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+                className="mt-5 rounded-xl border border-accent/20 bg-accent-muted/50 p-3"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+                  <p className="text-[11px] font-bold text-accent">Seller Active</p>
+                </div>
+                <p className="mt-1 text-[10px] leading-relaxed text-foreground-muted font-medium">
+                  Store inventory and order tools unlocked.
+                </p>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
 
+          {/* Settings */}
           <div className="mt-auto pt-4">
             <button
-              className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium transition-all duration-ui ${
+              className={`flex h-9.5 w-full items-center gap-2.5 rounded-xl px-3 text-[13px] font-semibold transition-all duration-150 ${
                 settingsOpen
                   ? 'bg-accent-muted text-accent'
                   : 'text-foreground-secondary hover:bg-surface-hover hover:text-foreground'
@@ -206,79 +289,114 @@ export function Sidebar() {
               onClick={() => setSettingsOpen((open) => !open)}
               type="button"
             >
-              <Settings2 className="h-[15px] w-[15px] shrink-0" aria-hidden="true" />
-              Settings
+              <Settings2
+                className={`h-[16px] w-[16px] shrink-0 transition-transform duration-300 ${settingsOpen ? 'rotate-45 text-accent' : 'text-foreground-muted'}`}
+                aria-hidden="true"
+              />
+              {!collapsed ? <span>Settings</span> : null}
             </button>
-            {settingsOpen ? (
-              <div className="mt-2 rounded-xl border border-border bg-surface-raised/80 p-2">
-                <ThemeSettings compact />
-              </div>
-            ) : null}
+
+            <AnimatePresence>
+              {settingsOpen && !collapsed ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                  className="mt-2 rounded-xl border border-border bg-surface-raised/80 p-2 backdrop-blur-md shadow-card"
+                >
+                  <ThemeSettings compact />
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
         </nav>
 
-        <div className="border-t border-border-subtle p-2.5">
+        {/* User dock */}
+        <div className="border-t border-border-subtle p-3 bg-surface-hover/20">
           {isLoading ? (
             <div className="h-12 animate-pulse rounded-xl bg-surface-raised" />
           ) : user ? (
-            <div className="rounded-xl border border-border bg-surface-raised/60 p-2.5">
+            <div className="rounded-xl border border-border bg-surface p-2.5 shadow-sm transition-all duration-200 hover:border-border-strong">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-contrast">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent text-xs font-bold text-accent-contrast shadow-subtle ring-2 ring-accent/20">
                   {user.name.charAt(0).toUpperCase()}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium text-foreground">{user.name}</p>
-                  <p className="truncate text-[11px] text-foreground-muted">{user.email}</p>
-                </div>
+                {!collapsed ? (
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[12px] font-bold text-foreground leading-tight">
+                      {user.name}
+                    </p>
+                    <p className="truncate text-[10px] text-foreground-muted font-medium mt-0.5">
+                      {user.email}
+                    </p>
+                  </div>
+                ) : null}
               </div>
-              <button
-                className="mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-border text-[12px] font-medium text-foreground-secondary transition-all duration-ui hover:bg-surface-hover hover:text-foreground"
-                onClick={handleLogout}
-                type="button"
-              >
-                <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
-                Sign out
-              </button>
+              {!collapsed ? (
+                <button
+                  className="mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-border text-[11px] font-semibold text-foreground-secondary transition-all duration-150 hover:bg-surface-hover hover:text-foreground hover:border-border-strong active:scale-95"
+                  onClick={handleLogout}
+                  type="button"
+                >
+                  <LogOut className="h-3 w-3" aria-hidden="true" />
+                  Sign out
+                </button>
+              ) : null}
             </div>
           ) : (
             <div className="space-y-1.5">
-              <Link className={`${primaryButtonClass} w-full`} href="/login">
-                Sign in
+              <Link className={`${primaryButtonClass} w-full text-xs h-8 rounded-lg`} href="/login">
+                {!collapsed ? 'Sign in' : 'Login'}
               </Link>
-              <Link className={`${secondaryButtonClass} w-full`} href="/register">
-                Create account
-              </Link>
+              {!collapsed ? (
+                <Link
+                  className={`${secondaryButtonClass} w-full text-xs h-8 rounded-lg`}
+                  href="/register"
+                >
+                  Create account
+                </Link>
+              ) : null}
             </div>
           )}
         </div>
-      </aside>
+      </motion.aside>
 
-      <nav
+      {/* Mobile bottom nav */}
+      <motion.nav
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 340, damping: 30, delay: 0.1 }}
         aria-label="Mobile"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border-subtle bg-surface/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur-md lg:hidden"
+        className="fixed inset-x-3 bottom-3 z-40 border border-white/6 bg-surface/88 pb-safe pt-1.5 backdrop-blur-2xl shadow-[0_16px_48px_-12px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.04)] rounded-2xl lg:hidden"
       >
-        <div className="mx-auto grid max-w-lg grid-cols-4 gap-1 px-2">
+        <div className="mx-auto grid max-w-md grid-cols-4 gap-0.5 px-1">
           {mobileItems.map((item) => {
             const Icon = item.icon;
             const isActive = isActiveItem(item, pathname);
 
             return (
               <Link
-                className={`flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-medium transition-all duration-ui ${
-                  isActive
-                    ? 'bg-accent-muted text-accent shadow-subtle'
-                    : 'text-foreground-muted hover:bg-surface-hover'
+                className={`relative flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-[9.5px] font-bold transition-all duration-150 ${
+                  isActive ? 'text-accent' : 'text-foreground-muted hover:text-foreground'
                 }`}
                 href={item.href}
                 key={item.href}
               >
-                <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
-                <span>{item.label}</span>
+                {isActive ? (
+                  <motion.span
+                    layoutId="mobile-nav-pill"
+                    className="absolute inset-0 rounded-xl bg-accent-muted/60 border-t-2 border-accent shadow-[0_-2px_12px_-2px_color-mix(in_srgb,var(--accent)_35%,transparent)]"
+                    transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+                  />
+                ) : null}
+                <Icon className="relative z-10 h-[17px] w-[17px]" aria-hidden="true" />
+                <span className="relative z-10 leading-none">{item.label}</span>
               </Link>
             );
           })}
         </div>
-      </nav>
+      </motion.nav>
     </>
   );
 }

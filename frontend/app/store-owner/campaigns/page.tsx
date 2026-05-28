@@ -33,7 +33,6 @@ import {
 } from '@/components/marketplace-ui';
 
 import { useRequireAuth } from '@/hooks/use-require-auth';
-
 import { useSyncedRefresh } from '@/lib/sync-events';
 
 import {
@@ -115,12 +114,9 @@ export default function CampaignsPage() {
 
       try {
         const storeData = await getMyStores();
-
         setStores(storeData.stores);
 
-        const nextStoreId =
-          storeId || storeData.stores[0]?.id || '';
-
+        const nextStoreId = storeId || storeData.stores[0]?.id || '';
         setStoreId(nextStoreId);
 
         if (nextStoreId) {
@@ -154,7 +150,6 @@ export default function CampaignsPage() {
     if (isAuthLoading || !isAuthorized) {
       return;
     }
-
     void loadData();
   }, [isAuthLoading, isAuthorized, loadData]);
 
@@ -175,22 +170,14 @@ export default function CampaignsPage() {
   useSyncedRefresh(
     ['campaigns', 'stores'],
     () => loadData({ silent: true }),
-    {
-      enabled: isAuthorized,
-    },
+    { enabled: isAuthorized },
   );
 
-  const handleToggleItem = (
-    itemId: string,
-    checked: boolean,
-  ) => {
+  const handleToggleItem = (itemId: string, checked: boolean) => {
     setSelectedItemIds((current) => {
       if (checked) {
-        return current.includes(itemId)
-          ? current
-          : [...current, itemId];
+        return current.includes(itemId) ? current : [...current, itemId];
       }
-
       return current.filter((id) => id !== itemId);
     });
   };
@@ -199,16 +186,13 @@ export default function CampaignsPage() {
     event: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = event.target;
-
     setFormValues((prev) => ({
       ...prev,
       [name]: value,
     }));
   };
 
-  const handleCreate = async (
-    event: FormEvent<HTMLFormElement>,
-  ) => {
+  const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!storeId || busyId) {
@@ -287,7 +271,7 @@ export default function CampaignsPage() {
     });
   };
 
-  const handleToggleCampaignStatus = async (campaignId: string, currentIsActive: boolean) => {
+  const handleToggleCampaign = async (campaignId: string, nextActive: boolean) => {
     if (busyId) {
       return;
     }
@@ -297,17 +281,20 @@ export default function CampaignsPage() {
     setError('');
 
     try {
-      const newIsActive = !currentIsActive;
-      const data = await toggleCampaignActive(campaignId, newIsActive);
+      const data = await toggleCampaignActive(campaignId, nextActive);
 
       setCampaigns((current) =>
         current.map((campaign) =>
-          campaign.id === campaignId ? data.campaign : campaign,
+          campaign.id === campaignId
+            ? { ...campaign, isActive: data.campaign.isActive }
+            : campaign,
         ),
       );
 
-      const action = newIsActive ? 'activated' : 'deactivated';
+      const action = data.campaign.isActive ? 'activated' : 'deactivated';
       setMessage(`${data.campaign.code} ${action}.`);
+      
+      await loadData({ silent: true });
     } catch (toggleError) {
       setError(
         toggleError instanceof Error
@@ -353,10 +340,7 @@ export default function CampaignsPage() {
       <PageContainer>
         <div className="flex flex-col items-center gap-3 py-16">
           <LoadingSpinner className="h-6 w-6" />
-
-          <p className="text-sm text-foreground-muted">
-            Checking access...
-          </p>
+          <p className="text-sm text-foreground-muted">Checking access...</p>
         </div>
       </PageContainer>
     );
@@ -369,23 +353,14 @@ export default function CampaignsPage() {
         title="Campaigns"
       />
 
-      {message ? (
-        <Notice tone="success">{message}</Notice>
-      ) : null}
-
-      {error ? (
-        <Notice tone="danger">{error}</Notice>
-      ) : null}
+      {message ? <Notice tone="success">{message}</Notice> : null}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[380px_1fr]">
         <MarketSurface className="p-5">
-          <form
-            className="space-y-4"
-            onSubmit={handleCreate}
-          >
+          <form className="space-y-4" onSubmit={handleCreate}>
             <label className="block">
               <span className={labelClass}>Store</span>
-
               <SelectShell>
                 <select
                   className={selectClass}
@@ -403,7 +378,6 @@ export default function CampaignsPage() {
 
             <label className="block">
               <span className={labelClass}>Code</span>
-
               <input
                 className={fieldClass}
                 name="code"
@@ -416,7 +390,6 @@ export default function CampaignsPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className={labelClass}>Type</span>
-
                 <SelectShell>
                   <select
                     className={selectClass}
@@ -432,7 +405,6 @@ export default function CampaignsPage() {
 
               <label className="block">
                 <span className={labelClass}>Value</span>
-
                 <input
                   className={fieldClass}
                   min="1"
@@ -448,7 +420,6 @@ export default function CampaignsPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className={labelClass}>Minimum order</span>
-
                 <input
                   className={fieldClass}
                   min="0"
@@ -461,7 +432,6 @@ export default function CampaignsPage() {
 
               <label className="block">
                 <span className={labelClass}>Global limit</span>
-
                 <input
                   className={fieldClass}
                   min="1"
@@ -475,7 +445,6 @@ export default function CampaignsPage() {
 
             <label className="block">
               <span className={labelClass}>Per-user limit</span>
-
               <input
                 className={fieldClass}
                 min="1"
@@ -489,7 +458,6 @@ export default function CampaignsPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className={labelClass}>Starts</span>
-
                 <input
                   className={fieldClass}
                   name="startsAt"
@@ -502,7 +470,6 @@ export default function CampaignsPage() {
 
               <label className="block">
                 <span className={labelClass}>Ends</span>
-
                 <input
                   className={fieldClass}
                   name="endsAt"
@@ -515,10 +482,7 @@ export default function CampaignsPage() {
             </div>
 
             <div>
-              <span className={labelClass}>
-                Target items (optional)
-              </span>
-
+              <span className={labelClass}>Target items (optional)</span>
               {storeItems.length === 0 ? (
                 <p className="mt-1 text-xs text-foreground-muted">
                   No inventory items available for this store.
@@ -537,7 +501,6 @@ export default function CampaignsPage() {
                         }
                         type="checkbox"
                       />
-
                       <span className="truncate">{item.name}</span>
                     </label>
                   ))}
@@ -563,7 +526,6 @@ export default function CampaignsPage() {
                 ) : (
                   <BadgePercent className="h-4 w-4" />
                 )}
-
                 {editingCampaignId ? 'Save campaign' : 'Create campaign'}
               </button>
 
@@ -608,14 +570,12 @@ export default function CampaignsPage() {
                       <p className="text-lg font-bold tracking-wide text-foreground">
                         {campaign.code}
                       </p>
-
                       <p className="mt-1 text-sm text-foreground-secondary">
                         {campaign.type === 'PERCENTAGE'
                           ? `${Number(campaign.value).toFixed(0)}% off`
                           : `Rs. ${Number(campaign.value).toFixed(2)} off`}
                       </p>
                     </div>
-
                     <span className="rounded-full bg-surface-raised px-2.5 py-1 text-xs font-medium text-foreground-secondary">
                       {campaign.isActive ? 'Active' : 'Inactive'}
                     </span>
@@ -625,13 +585,10 @@ export default function CampaignsPage() {
                     <span>
                       Min Rs. {Number(campaign.minOrderValue).toFixed(2)}
                     </span>
-
                     <span>{campaign.usedCount} used</span>
-
                     <span>
                       {new Date(campaign.startsAt).toLocaleDateString()}
                     </span>
-
                     <span>
                       {new Date(campaign.endsAt).toLocaleDateString()}
                     </span>
@@ -646,9 +603,8 @@ export default function CampaignsPage() {
                   {deleteConfirmId === campaign.id ? (
                     <div className="mt-4 rounded-lg border border-border-danger bg-surface-danger/5 p-3">
                       <p className="text-sm text-foreground-secondary">
-                        Delete "{campaign.code}"? This cannot be undone.
+                        Delete &quot;{campaign.code}&quot;? This cannot be undone.
                       </p>
-
                       <div className="mt-2 flex gap-2">
                         <button
                           className={`${secondaryButtonClass} flex-1 text-xs`}
@@ -662,7 +618,6 @@ export default function CampaignsPage() {
                             'Confirm Delete'
                           )}
                         </button>
-
                         <button
                           className={`${secondaryButtonClass} flex-1 text-xs`}
                           disabled={busyId === campaign.id}
@@ -692,7 +647,12 @@ export default function CampaignsPage() {
                         <button
                           className={secondaryButtonClass}
                           disabled={busyId === campaign.id}
-                          onClick={() => void handleToggleCampaignStatus(campaign.id, campaign.isActive)}
+                          onClick={() =>
+                            void handleToggleCampaign(
+                              campaign.id,
+                              !campaign.isActive,
+                            )
+                          }
                           type="button"
                         >
                           {busyId === campaign.id ? (

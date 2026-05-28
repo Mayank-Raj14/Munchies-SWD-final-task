@@ -56,4 +56,25 @@ export const API_ROUTES = {
     storeBlock: (storeId: string, userId: string) =>
       `/governance/stores/${storeId}/users/${userId}/block`,
   },
+
+  // Admin-only convenience endpoints for moderation UI
+  admin: {
+    users: {
+      // GET /admin/users?query=...
+      search: (query: string) => `/admin/users?query=${encodeURIComponent(query)}`,
+    },
+    stores: {
+      // GET /admin/stores
+      list: '/admin/stores',
+      // POST /admin/stores/:storeId/block-everyone
+      blockEveryone: (storeId: string) => `/admin/stores/${storeId}/block-everyone`,
+      // DELETE /admin/stores/:storeId
+      remove: (storeId: string) => `/admin/stores/${storeId}`,
+      // POST /admin/stores/:storeId/suspend
+      suspend: (storeId: string) => `/admin/stores/${storeId}/suspend`,
+      // POST /admin/stores/:storeId/reactivate
+      reactivate: (storeId: string) => `/admin/stores/${storeId}/reactivate`,
+    },
+  },
 } as const;
+

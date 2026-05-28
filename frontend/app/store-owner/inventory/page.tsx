@@ -3,7 +3,8 @@
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from 'react';
-import { AlertCircle, PackagePlus, PackageSearch } from 'lucide-react';
+import { AlertCircle, PackagePlus, PackageSearch, Edit2, Trash2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import {
   EmptyState,
@@ -34,6 +35,7 @@ import {
 import { getMyStores } from '@/services/stores';
 import type { Item } from '@/types/item';
 import type { Store } from '@/types/store';
+
 const ACTIVE_STORE_KEY = 'munchies_active_store_id';
 
 type FormState = {
@@ -184,7 +186,7 @@ export default function InventoryPage() {
       <PageContainer>
         <div className="flex flex-col items-center gap-3 py-16">
           <LoadingSpinner className="h-6 w-6" />
-          <p className="text-sm text-foreground-muted">Checking access…</p>
+          <p className="text-xs font-semibold text-foreground-muted">Checking seller credentials...</p>
         </div>
       </PageContainer>
     );
@@ -240,11 +242,11 @@ export default function InventoryPage() {
         setItems((currentItems) =>
           currentItems.map((item) => (item.id === data.item.id ? data.item : item)),
         );
-        setMessage('Item updated.');
+        setMessage('Item updated successfully.');
       } else {
         const data = await createStoreItem(selectedStoreId, payload);
         setItems((currentItems) => [data.item, ...currentItems]);
-        setMessage('Item created.');
+        setMessage('Item added to live inventory.');
       }
 
       setForm(emptyForm);
@@ -281,7 +283,7 @@ export default function InventoryPage() {
     try {
       await deleteStoreItem(selectedStoreId, itemId);
       setItems((currentItems) => currentItems.filter((item) => item.id !== itemId));
-      setMessage('Item deleted.');
+      setMessage('Item removed from inventory.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to delete item.');
     } finally {
@@ -295,41 +297,54 @@ export default function InventoryPage() {
 
   return (
     <PageContainer size="wide">
-      <SectionHeader description="Manage items for your stores." title="Inventory" />
-      {message ? (
-        <div className="mt-6">
-          <Notice
-            tone={/unable|failed|error/i.test(message) ? 'danger' : 'success'}
+      <SectionHeader description="Edit details, price sheets, image preview assets, and product stocks." title="Canteen Inventory" />
+      
+      <AnimatePresence>
+        {message ? (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mt-6"
           >
-            {message}
-          </Notice>
-        </div>
-      ) : null}
-      <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,380px)_1fr]">
+            <Notice tone={/unable|failed|error/i.test(message) ? 'danger' : 'success'}>{message}</Notice>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <section className="mt-6 grid gap-6 lg:grid-cols-[380px_1fr]">
+        {/* New Item Form */}
         <form className={formPanelClass} onSubmit={handleSubmit}>
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-muted text-accent">
+          <div className="flex items-start gap-3 border-b border-border-subtle pb-4.5 mb-5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-muted text-accent shadow-subtle">
               <PackagePlus className="h-5 w-5" aria-hidden="true" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-foreground">
-                {form.id ? 'Edit item' : 'New item'}
+              <h2 className="text-base font-extrabold text-foreground leading-tight">
+                {form.id ? 'Edit Dish details' : 'New Dish Item'}
               </h2>
-              <p className="mt-1 text-sm text-foreground-muted">
-                {selectedStore ? selectedStore.name : 'Choose an approved store first.'}
+              <p className="mt-1 text-xs text-foreground-muted font-medium truncate max-w-[220px]">
+                {selectedStore ? selectedStore.name : 'No approved store linked.'}
               </p>
             </div>
           </div>
 
-          {formError ? (
-            <div className="mt-5 flex gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm font-medium text-red-300">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>{formError}</span>
-            </div>
-          ) : null}
+          <AnimatePresence>
+            {formError ? (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                className="mb-4 flex gap-2 rounded-xl border border-red-500/15 bg-red-500/5 p-3.5 text-xs font-semibold text-red-300"
+              >
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" aria-hidden="true" />
+                <span>{formError}</span>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
 
-          <label className="mt-6 block">
-            <span className={labelClass}>Store</span>
+          <label className="block">
+            <span className={labelClass}>Select Canteen Store</span>
             <SelectShell>
               <select
                 className={selectClass}
@@ -338,7 +353,7 @@ export default function InventoryPage() {
                 disabled={isSubmitting || isLoading}
                 value={selectedStoreId}
               >
-                <option value="">{isLoading ? 'Loading stores...' : 'Select store'}</option>
+                <option value="">{isLoading ? 'Loading canteens...' : 'Select canteen block'}</option>
                 {stores.map((store) => (
                   <option key={store.id} value={store.id}>
                     {store.name}
@@ -349,34 +364,38 @@ export default function InventoryPage() {
           </label>
 
           {!isLoading && !hasStores ? (
-            <div className="mt-5 rounded-lg border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-medium text-amber-200">
-              No approved store is linked to your account yet.
+            <div className="mt-4 rounded-xl border border-amber-500/15 bg-amber-500/5 p-4 text-xs font-semibold text-amber-200 leading-relaxed">
+              No approved canteen block registration is linked. Submit an application in Seller Onboarding.
             </div>
           ) : null}
 
-          <div className="mt-5 space-y-5">
+          <div className="mt-5 space-y-4">
             <label className="block">
-              <span className={labelClass}>Name</span>
+              <span className={labelClass}>Dish Name</span>
               <input
                 className={fieldClass}
                 disabled={isFormDisabled}
                 minLength={2}
                 onChange={(event) => setForm({ ...form, name: event.target.value })}
                 required
+                placeholder="Example: Paneer Butter Masala"
                 value={form.name}
               />
             </label>
+            
             <label className="block">
               <span className={labelClass}>Description</span>
               <textarea
                 className={`${fieldClass} min-h-24`}
                 disabled={isFormDisabled}
                 onChange={(event) => setForm({ ...form, description: event.target.value })}
+                placeholder="Delicious paneer curry with creamy tomato gravy..."
                 value={form.description}
               />
             </label>
+            
             <label className="block">
-              <span className={labelClass}>Category</span>
+              <span className={labelClass}>Category Category</span>
               <SelectShell>
                 <select
                   className={selectClass}
@@ -395,22 +414,32 @@ export default function InventoryPage() {
                 </select>
               </SelectShell>
             </label>
-            {form.category === 'Others' ? (
-              <label className="block">
-                <span className={labelClass}>Custom category</span>
-                <input
-                  className={fieldClass}
-                  disabled={isFormDisabled}
-                  minLength={2}
-                  onChange={(event) => setForm({ ...form, customCategory: event.target.value })}
-                  required
-                  value={form.customCategory}
-                />
-              </label>
-            ) : null}
+            
+            <AnimatePresence>
+              {form.category === 'Others' ? (
+                <motion.label
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="block"
+                >
+                  <span className={labelClass}>Custom Category Name</span>
+                  <input
+                    className={fieldClass}
+                    disabled={isFormDisabled}
+                    minLength={2}
+                    onChange={(event) => setForm({ ...form, customCategory: event.target.value })}
+                    required
+                    placeholder="Example: Main Course"
+                    value={form.customCategory}
+                  />
+                </motion.label>
+              ) : null}
+            </AnimatePresence>
+            
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
-                <span className={labelClass}>Price</span>
+                <span className={labelClass}>Price (Rs.)</span>
                 <input
                   className={`${fieldClass} [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
                   disabled={isFormDisabled}
@@ -421,11 +450,13 @@ export default function InventoryPage() {
                   required
                   step="0.01"
                   type="number"
+                  placeholder="120"
                   value={form.price}
                 />
               </label>
+              
               <label className="block">
-                <span className={labelClass}>Stock</span>
+                <span className={labelClass}>Initial Stock Count</span>
                 <input
                   className={`${fieldClass} [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
                   disabled={isFormDisabled}
@@ -435,15 +466,17 @@ export default function InventoryPage() {
                   }
                   required
                   type="number"
+                  placeholder="10"
                   value={form.stock}
                 />
               </label>
             </div>
+            
             <label className="block">
-              <span className={labelClass}>Image</span>
+              <span className={labelClass}>Product Image File</span>
               <input
                 accept="image/*"
-                className={fieldClass}
+                className={`${fieldClass} file:bg-surface-raised file:border-0 file:rounded-lg file:text-xs file:font-bold file:px-2.5 file:py-1 file:mr-2 file:text-foreground`}
                 disabled={isFormDisabled}
                 onChange={(event) => setForm({ ...form, image: event.target.files?.[0] ?? null })}
                 type="file"
@@ -451,26 +484,27 @@ export default function InventoryPage() {
             </label>
           </div>
 
-          <div className="mt-6 flex gap-3">
+          <div className="mt-6 flex gap-3.5">
             <button
-              className={primaryButtonClass}
+              className={`${primaryButtonClass} flex-1 text-xs h-9.5`}
               disabled={isFormDisabled || !selectedStoreId}
               type="submit"
             >
               {isSubmitting ? (
                 <>
-                  <LoadingSpinner />
-                  Saving
+                  <LoadingSpinner className="h-3 w-3" />
+                  Saving...
                 </>
               ) : form.id ? (
                 'Update Item'
               ) : (
-                'Create Item'
+                'Add Item'
               )}
             </button>
+            
             {form.id ? (
               <button
-                className={secondaryButtonClass}
+                className={`${secondaryButtonClass} h-9.5 text-xs px-4`}
                 onClick={() => setForm(emptyForm)}
                 type="button"
               >
@@ -480,88 +514,112 @@ export default function InventoryPage() {
           </div>
         </form>
 
-        <MarketSurface className="p-6">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        {/* Live inventory panel list */}
+        <MarketSurface className="p-5 sm:p-6 shadow-card border border-border flex flex-col h-full min-h-[500px]">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-border-subtle pb-4.5 mb-5">
             <div>
-              <h2 className="text-xl font-semibold text-foreground">Live inventory</h2>
-              <p className="mt-1 text-sm text-foreground-muted">
-                {selectedStore ? `${selectedStore.name} products` : 'Select a store to view items.'}
+              <h2 className="text-sm font-extrabold text-foreground uppercase tracking-wider">Live Active Inventory</h2>
+              <p className="mt-1 text-xs text-foreground-muted font-semibold">
+                {selectedStore ? `${selectedStore.name} active items` : 'Choose a canteen block first.'}
               </p>
             </div>
             {selectedStore ? (
-              <span className="rounded-full bg-surface-raised px-3 py-1 text-xs font-semibold text-foreground-secondary">
-                {items.length} items
+              <span className="rounded-lg border border-border bg-surface-raised px-2.5 py-0.75 text-[10px] font-bold text-foreground-secondary shadow-subtle uppercase">
+                {items.length} Product{items.length === 1 ? '' : 's'}
               </span>
             ) : null}
           </div>
+
           {isLoading || isItemsLoading ? (
-            <div className="mt-6 space-y-4">
+            <div className="space-y-4">
               {[0, 1, 2].map((item) => (
-                <div className="h-28 animate-pulse rounded-lg bg-surface-raised" key={item} />
+                <div className="h-24 animate-pulse rounded-xl bg-surface-raised" key={item} />
               ))}
             </div>
           ) : items.length === 0 ? (
-            <div className="mt-6">
+            <div className="flex-1 flex items-center justify-center py-10">
               <EmptyState
-                description="Add real products for the selected store. Customer pages stay empty until inventory is available."
+                description="List your canteen products using the form on the left. Customer store catalogs will render instantly."
                 icon={PackageSearch}
-                title="No items yet"
+                title="Your inventory is empty"
               />
             </div>
           ) : (
-            <div className="mt-6 grid gap-4">
-              {items.map((item) => (
-                <article
-                  className="grid gap-4 rounded-lg border border-border bg-surface p-4 shadow-sm transition hover:border-border-strong sm:grid-cols-[96px_1fr_auto] sm:items-center"
-                  key={item.id}
-                >
-                  <div className="relative h-24 w-24 overflow-hidden rounded-lg bg-surface-raised">
-                    {item.imageUrl ? (
-                      <Image
-                        alt={item.name}
-                        className="object-cover"
-                        fill
-                        src={buildAssetUrl(item.imageUrl)}
-                      />
-                    ) : (
-                      <MediaFallback className="rounded-lg" subtitle={item.category} title={item.name} />
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-bold text-foreground">{item.name}</h3>
-                      <span className="rounded-full bg-accent-muted px-2 py-1 text-xs font-bold text-accent">
-                        {item.category}
-                      </span>
+            <motion.div
+              layout
+              className="grid gap-3.5"
+            >
+              <AnimatePresence>
+                {items.map((item) => (
+                  <motion.article
+                    layout
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                    className="grid gap-4 rounded-xl border border-border bg-surface p-3 shadow-sm hover:border-border-strong sm:grid-cols-[80px_1fr_auto] sm:items-center"
+                    key={item.id}
+                  >
+                    <div className="relative h-20 w-20 overflow-hidden rounded-xl bg-surface-raised border border-border">
+                      {item.imageUrl ? (
+                        <Image
+                          alt={item.name}
+                          className="object-cover"
+                          fill
+                          src={buildAssetUrl(item.imageUrl)}
+                          sizes="80px"
+                        />
+                      ) : (
+                        <MediaFallback className="rounded-xl" subtitle={item.category} title={item.name} />
+                      )}
                     </div>
-                    <p className="mt-1 text-sm font-medium text-foreground-secondary">
-                      {item.description}
-                    </p>
-                    <p className="mt-2 text-sm font-bold text-foreground">
-                      Rs. {item.price} - Stock {item.stock}
-                    </p>
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      className={secondaryButtonClass}
-                      disabled={isSubmitting}
-                      onClick={() => startEdit(item)}
-                      type="button"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="inline-flex h-11 items-center justify-center rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-foreground-secondary shadow-sm transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={isSubmitting}
-                      onClick={() => void removeItem(item.id)}
-                      type="button"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
+                    
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-sm font-bold text-foreground leading-tight">{item.name}</h3>
+                        <span className="rounded-lg bg-accent-muted border border-accent/20 px-2 py-0.5 text-[9px] font-bold text-accent shadow-sm uppercase tracking-wide">
+                          {item.category}
+                        </span>
+                      </div>
+                      
+                      {item.description ? (
+                        <p className="mt-1 text-xs text-foreground-muted font-medium line-clamp-1 max-w-[280px]">
+                          {item.description}
+                        </p>
+                      ) : null}
+                      
+                      <p className="mt-2 text-xs font-bold text-foreground">
+                        Rs. {item.price} · <span className="text-accent">{item.stock} left in stock</span>
+                      </p>
+                    </div>
+                    
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        className={`${secondaryButtonClass} h-8 text-[11px] font-bold px-3 rounded-lg active:scale-95`}
+                        disabled={isSubmitting}
+                        onClick={() => startEdit(item)}
+                        type="button"
+                        aria-label="Edit item"
+                      >
+                        <Edit2 className="h-3 w-3 mr-1" />
+                        Edit
+                      </button>
+                      
+                      <button
+                        className="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-surface px-3 text-[11px] font-bold text-foreground-secondary shadow-sm transition hover:border-red-500/30 hover:bg-red-500/5 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-50 active:scale-95"
+                        disabled={isSubmitting}
+                        onClick={() => void removeItem(item.id)}
+                        type="button"
+                        aria-label="Delete item"
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Delete
+                      </button>
+                    </div>
+                  </motion.article>
+                ))}
+              </AnimatePresence>
+            </motion.div>
           )}
         </MarketSurface>
       </section>

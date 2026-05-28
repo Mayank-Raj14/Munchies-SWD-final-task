@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+
 import Link from 'next/link';
 import { Ban, CheckCircle2, RefreshCw, ShieldCheck, Store, Unlock } from 'lucide-react';
 
@@ -30,6 +31,16 @@ import {
   unblockUserGlobally,
 } from '@/services/governance';
 
+import {
+  blockEveryoneFromStore,
+  unblockedEveryoneFromStore,
+  reactivateStoreAsAdmin,
+  suspendStoreAsAdmin,
+  removeStoreAsAdmin,
+  searchUsersForModeration,
+  listStoresForModeration,
+} from '@/services/admin-moderation';
+
 export default function AdminPage() {
   const { isLoading: isAuthLoading, isAuthorized } = useRequireAuth(['ADMIN']);
   const [requests, setRequests] = useState<StoreOwnershipRequest[]>([]);
@@ -37,6 +48,16 @@ export default function AdminPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  // Moderation UI state
+  const [action, setAction] = useState<string>('global-block');
+  const [userQuery, setUserQuery] = useState('');
+  const [userResults, setUserResults] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+
+  const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('');
+
 
   const loadRequests = useCallback(async () => {
     if (!isAuthorized) {
@@ -63,6 +84,25 @@ export default function AdminPage() {
 
     void loadRequests();
   }, [isAuthLoading, isAuthorized, loadRequests]);
+
+  useEffect(() => {
+    if (!isAuthorized) {
+      return;
+    }
+
+    // load store list once for dropdown/autocomplete baseline
+    void (async () => {
+      try {
+        const data = await listStoresForModeration();
+        setStores(data.stores);
+      } catch {
+        // keep moderation UI functional even if store list fails
+      }
+
+    })();
+
+  }, [isAuthorized]);
+
 
   const pendingByHostel = useMemo(() => {
     return requests.reduce<Record<string, number>>((groups, request) => {
@@ -96,6 +136,32 @@ export default function AdminPage() {
     }
   };
 
+  useEffect(() => {
+    if (!isAuthorized) {
+      return;
+    }
+
+    const trimmed = userQuery.trim();
+    if (trimmed.length < 2) {
+      setUserResults([]);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const data = await searchUsersForModeration(trimmed);
+          setUserResults(data.users);
+        } catch {
+          setUserResults([]);
+        }
+      })();
+    }, 300);
+
+
+    return () => window.clearTimeout(timeout);
+  }, [isAuthorized, userQuery]);
+
   const handleModeration = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -109,13 +175,26 @@ export default function AdminPage() {
 
     const formData = new FormData(event.currentTarget);
     const action = String(formData.get('action'));
-    const userId = String(formData.get('userId')).trim();
-    const storeId = String(formData.get('storeId')).trim();
+    const userId = String(formData.get('userId') ?? '').trim();
+    const storeId = String(formData.get('storeId') ?? '').trim();
     const reason = String(formData.get('reason') || 'Admin moderation').trim();
 
     try {
-      if ((action === 'store-block' || action === 'store-unblock') && !storeId) {
+      if (
+        (action === 'store-block' || action === 'store-unblock' || action === 'store-block-everyone' ||
+          action === 'store-unblock-everyone' || action === 'store-suspend' || action === 'store-reactivate' ||
+          action === 'store-remove') &&
+        !storeId
+      ) {
         throw new Error('Store ID is required for store-level actions.');
+      }
+
+      if (
+        (action === 'global-block' || action === 'global-unblock' || action === 'store-block' ||
+          action === 'store-unblock') &&
+        !userId
+      ) {
+        throw new Error('User ID is required for user actions.');
       }
 
       if (action === 'global-block') {
@@ -124,8 +203,18 @@ export default function AdminPage() {
         await unblockUserGlobally(userId);
       } else if (action === 'store-block') {
         await blockUserForStore(storeId, userId, reason);
-      } else {
+      } else if (action === 'store-unblock') {
         await unblockUserForStore(storeId, userId);
+      } else if (action === 'store-block-everyone') {
+        await blockEveryoneFromStore(storeId, reason);
+      } else if (action === 'store-unblock-everyone') {
+        await unblockedEveryoneFromStore(storeId);
+      } else if (action === 'store-suspend') {
+        await suspendStoreAsAdmin(storeId);
+      } else if (action === 'store-reactivate') {
+        await reactivateStoreAsAdmin(storeId);
+      } else {
+        await removeStoreAsAdmin(storeId);
       }
 
       setMessage('Moderation action completed and synced.');
@@ -275,29 +364,98 @@ export default function AdminPage() {
           <form className="mt-5 space-y-4" onSubmit={handleModeration}>
             <label className="block">
               <span className={labelClass}>Action</span>
-              <select className={fieldClass} name="action">
-                <option value="global-block">Global block</option>
-                <option value="global-unblock">Global unblock</option>
-                <option value="store-block">Store block</option>
-                <option value="store-unblock">Store unblock</option>
+              <select
+                className={fieldClass}
+                name="action"
+                value={action}
+                onChange={(e) => setAction(e.target.value)}
+              >
+                <option value="global-block">Global block user</option>
+                <option value="global-unblock">Global unblock user</option>
+                <option value="store-block">Store block user</option>
+                <option value="store-unblock">Store unblock user</option>
+                <option value="store-block-everyone">Block everyone from store</option>
+                <option value="store-unblock-everyone">Unblock everyone from store</option>
+                <option value="store-suspend">Suspend store</option>
+                <option value="store-reactivate">Reactivate store</option>
+                <option value="store-remove">Remove store</option>
               </select>
             </label>
-            <label className="block">
-              <span className={labelClass}>User ID</span>
-              <input className={fieldClass} name="userId" required />
-            </label>
-            <label className="block">
-              <span className={labelClass}>Store ID</span>
-              <input className={fieldClass} name="storeId" placeholder="Required for store block" />
-            </label>
+
+            {action === 'global-block' || action === 'global-unblock' || action === 'store-block' || action === 'store-unblock' ? (
+              <label className="block">
+                <span className={labelClass}>User</span>
+                <input
+                  className={fieldClass}
+                  placeholder="Search user by name or email"
+                  value={userQuery}
+                  onChange={(e) => {
+                    setUserQuery(e.target.value);
+                    setSelectedUserId('');
+                  }}
+                />
+
+                {userResults.length > 0 ? (
+                  <div className="mt-2 max-h-48 overflow-auto rounded-xl border border-border bg-surface-raised">
+                    {userResults.slice(0, 8).map((u) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-surface-muted"
+                        onClick={() => {
+                          setSelectedUserId(u.id);
+                          setUserQuery(`${u.name} (${u.email})`);
+                          setUserResults([]);
+                        }}
+                      >
+                        <span className="font-medium text-foreground">{u.name}</span>
+                        <span className="text-foreground-muted">{u.email}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {selectedUserId ? (
+                  <input type="hidden" name="userId" value={selectedUserId} />
+                ) : null}
+              </label>
+            ) : null}
+
+            {action === 'store-block' || action === 'store-unblock' || action === 'store-block-everyone' || action === 'store-unblock-everyone' || action === 'store-suspend' || action === 'store-reactivate' || action === 'store-remove' ? (
+              <label className="block">
+                <span className={labelClass}>Store</span>
+                <select
+                  className={fieldClass}
+                  value={selectedStoreId}
+                  onChange={(e) => {
+                    setSelectedStoreId(e.target.value);
+                  }}
+
+                >
+                  <option value="">Select a store</option>
+                  {stores.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+                {selectedStoreId ? <input type="hidden" name="storeId" value={selectedStoreId} /> : null}
+              </label>
+            ) : null}
+
             <label className="block">
               <span className={labelClass}>Reason</span>
               <textarea className={`${fieldClass} min-h-24 resize-none`} name="reason" />
             </label>
-            <button className={`${primaryButtonClass} w-full`} disabled={busyId === 'moderation'}>
+
+            <button
+              className={`${primaryButtonClass} w-full`}
+              disabled={busyId === 'moderation' || ((action === 'global-block' || action === 'global-unblock' || action === 'store-block' || action === 'store-unblock') && !selectedUserId) || ((action === 'store-block-everyone' || action === 'store-unblock-everyone' || action === 'store-suspend' || action === 'store-reactivate' || action === 'store-remove' || action === 'store-block' || action === 'store-unblock') && !selectedStoreId)}
+              type="submit"
+            >
               {busyId === 'moderation' ? <LoadingSpinner /> : <Unlock className="h-4 w-4" />}
               Apply moderation
             </button>
+
           </form>
         </MarketSurface>
       </section>

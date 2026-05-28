@@ -13,6 +13,7 @@ import {
   Store as StoreIcon,
   X,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import {
   CardSkeleton,
@@ -83,7 +84,6 @@ const formatStoreAge = (createdAt: string) => {
   if (!Number.isFinite(created.getTime())) {
     return 'Recently added';
   }
-
   return `Added ${created.toISOString().slice(0, 10)}`;
 };
 
@@ -282,34 +282,34 @@ export function StoreDirectory() {
   };
 
   const FilterContent = (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
+    <div className="flex h-full flex-col bg-surface">
+      <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3.5">
         <div>
-          <p className="text-xs font-medium uppercase text-foreground-faint">Marketplace</p>
-          <h2 className="text-base font-semibold text-foreground">Filters</h2>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-faint">Marketplace</p>
+          <h2 className="text-sm font-bold text-foreground">Filters</h2>
         </div>
-        <button className={secondaryButtonClass} onClick={clearFilters} type="button">
+        <button className={`${secondaryButtonClass} h-8 text-xs px-3 rounded-lg`} onClick={clearFilters} type="button">
           Clear all
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        <label className="mb-4 flex h-10 items-center gap-2 rounded-xl border border-border bg-canvas px-3">
+      <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-none">
+        <label className="mb-4 flex h-10 items-center gap-2 rounded-xl border border-border bg-canvas px-3 focus-within:border-accent/40 focus-within:ring-2 focus-within:ring-accent/10 transition-all">
           <Search className="h-4 w-4 text-foreground-muted" aria-hidden="true" />
           <span className="sr-only">Search filters</span>
           <input
-            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-foreground-muted"
+            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-foreground-muted font-medium"
             onChange={(event) => updateFilter('filterSearch', event.target.value)}
-            placeholder="Search within results"
+            placeholder="Search within results..."
             value={filters.filterSearch}
           />
         </label>
 
         <div className="divide-y divide-border-subtle">
           {filterSections.map((section) => (
-            <section className="py-3" key={section}>
+            <section className="py-3.5" key={section}>
               <button
-                className="flex w-full items-center justify-between text-sm font-semibold text-foreground"
+                className="flex w-full items-center justify-between text-sm font-bold text-foreground hover:text-accent transition-colors"
                 onClick={() =>
                   setOpenSections((current) => ({ ...current, [section]: !current[section] }))
                 }
@@ -317,15 +317,15 @@ export function StoreDirectory() {
               >
                 {section}
                 <ChevronDown
-                  className={`h-4 w-4 text-foreground-muted transition-transform duration-ui ${
-                    openSections[section] ? 'rotate-180' : ''
+                  className={`h-4 w-4 text-foreground-muted transition-transform duration-200 ${
+                    openSections[section] ? 'rotate-180 text-accent' : ''
                   }`}
                   aria-hidden="true"
                 />
               </button>
 
               {openSections[section] ? (
-                <div className="mt-3 space-y-3">
+                <div className="mt-3.5 space-y-3">
                   {section === 'Hostel' ? (
                     <SelectShell>
                       <select
@@ -352,10 +352,10 @@ export function StoreDirectory() {
                           ['nonveg', 'Non-veg'],
                         ].map(([value, label]) => (
                           <button
-                            className={`h-8 rounded-lg border text-xs font-semibold transition-colors duration-ui ${
+                            className={`h-8.5 rounded-lg border text-xs font-bold transition-all duration-200 ${
                               filters.diet === value
-                                ? 'border-accent bg-accent text-accent-contrast'
-                                : 'border-border bg-surface-raised text-foreground-secondary hover:border-border-strong'
+                                ? 'border-accent bg-accent text-accent-contrast shadow-subtle'
+                                : 'border-border bg-surface-raised text-foreground-secondary hover:border-border-strong hover:bg-surface-muted'
                             }`}
                             key={value}
                             onClick={() => updateFilter('diet', value as Filters['diet'])}
@@ -386,10 +386,10 @@ export function StoreDirectory() {
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-2">
                         <label>
-                          <span className="text-xs font-medium text-foreground-muted">Min</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">Min</span>
                           <input
-                            className={`mt-1 h-10 w-full rounded-lg border bg-canvas px-3 text-sm text-foreground outline-none transition-all duration-ui placeholder:text-foreground-muted focus:border-accent/40 focus:ring-2 focus:ring-accent/15 ${
-                              priceRange.isInvalid ? 'border-red-500/40' : 'border-border'
+                            className={`mt-1 h-9.5 w-full rounded-xl border bg-canvas px-3 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-foreground-muted focus:border-accent/40 focus:ring-2 focus:ring-accent/10 ${
+                              priceRange.isInvalid ? 'border-red-500/40 focus:ring-red-500/10' : 'border-border'
                             }`}
                             inputMode="numeric"
                             min={0}
@@ -400,10 +400,10 @@ export function StoreDirectory() {
                           />
                         </label>
                         <label>
-                          <span className="text-xs font-medium text-foreground-muted">Max</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">Max</span>
                           <input
-                            className={`mt-1 h-10 w-full rounded-lg border bg-canvas px-3 text-sm text-foreground outline-none transition-all duration-ui placeholder:text-foreground-muted focus:border-accent/40 focus:ring-2 focus:ring-accent/15 ${
-                              priceRange.isInvalid ? 'border-red-500/40' : 'border-border'
+                            className={`mt-1 h-9.5 w-full rounded-xl border bg-canvas px-3 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-foreground-muted focus:border-accent/40 focus:ring-2 focus:ring-accent/10 ${
+                              priceRange.isInvalid ? 'border-red-500/40 focus:ring-red-500/10' : 'border-border'
                             }`}
                             inputMode="numeric"
                             min={0}
@@ -415,7 +415,7 @@ export function StoreDirectory() {
                         </label>
                       </div>
                       {priceRange.isInvalid ? (
-                        <p className="text-xs font-medium text-red-300">
+                        <p className="text-xs font-semibold text-red-400">
                           Min price must be lower than max price.
                         </p>
                       ) : null}
@@ -426,10 +426,10 @@ export function StoreDirectory() {
 
                           return (
                             <button
-                              className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors duration-ui ${
+                              className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-all duration-200 ${
                                 isActive
-                                  ? 'border-accent bg-accent text-accent-contrast'
-                                  : 'border-border bg-surface-raised text-foreground-secondary hover:border-border-strong hover:text-foreground'
+                                  ? 'border-accent bg-accent text-accent-contrast shadow-subtle'
+                                  : 'border-border bg-surface-raised text-foreground-secondary hover:border-border-strong hover:bg-surface-muted'
                               }`}
                               key={preset.label}
                               onClick={() => applyPricePreset(preset)}
@@ -445,20 +445,20 @@ export function StoreDirectory() {
 
                   {section === 'Store' ? (
                     <>
-                      <label className="flex items-center justify-between rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-foreground-secondary">
+                      <label className="flex items-center justify-between rounded-lg border border-border bg-surface-raised px-3 py-2 text-xs font-semibold text-foreground-secondary">
                         Open now
                         <input
                           checked={filters.openOnly}
-                          className="h-4 w-4 accent-[var(--accent)]"
+                          className="h-4 w-4 rounded accent-[var(--accent)]"
                           onChange={(event) => updateFilter('openOnly', event.target.checked)}
                           type="checkbox"
                         />
                       </label>
-                      <label className="flex items-center justify-between rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-foreground-secondary">
+                      <label className="flex items-center justify-between rounded-lg border border-border bg-surface-raised px-3 py-2 text-xs font-semibold text-foreground-secondary">
                         Available items
                         <input
                           checked={filters.availability}
-                          className="h-4 w-4 accent-[var(--accent)]"
+                          className="h-4 w-4 rounded accent-[var(--accent)]"
                           onChange={(event) => updateFilter('availability', event.target.checked)}
                           type="checkbox"
                         />
@@ -492,10 +492,10 @@ export function StoreDirectory() {
                         </select>
                       </SelectShell>
                       <button
-                        className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors duration-ui ${
+                        className={`w-full rounded-xl border px-3 py-2 text-left text-xs font-bold transition-all duration-200 ${
                           filters.popularity === 'popular'
-                            ? 'border-accent bg-accent-muted text-accent'
-                            : 'border-border bg-surface-raised text-foreground-secondary hover:border-border-strong'
+                            ? 'border-accent bg-accent-muted text-accent shadow-sm'
+                            : 'border-border bg-surface-raised text-foreground-secondary hover:border-border-strong hover:bg-surface-muted'
                         }`}
                         onClick={() =>
                           updateFilter(
@@ -520,58 +520,61 @@ export function StoreDirectory() {
 
   return (
     <div className="flex min-h-screen flex-col pb-24 lg:pb-8">
-      <div className="sticky top-0 z-30 border-b border-border-subtle bg-canvas/95 shadow-header backdrop-blur-md">
-        <div className="mx-auto w-full max-w-content-wide px-4 py-3 sm:px-5 lg:px-7">
+      {/* Sticky header using the premium glassmorphism effect */}
+      <div className="sticky top-0 z-30 border-b border-border-subtle bg-canvas/80 shadow-header backdrop-blur-md">
+        <div className="mx-auto w-full max-w-content-wide px-4 py-3.5 sm:px-5 lg:px-7">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-xs text-foreground-muted">Order from student stores on campus</p>
-              <h1 className="text-lg font-semibold tracking-tight text-foreground">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-faint">Order from student stores on campus</p>
+              <h1 className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
                 Stores near you
               </h1>
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
               <button
-                className={`${secondaryButtonClass} lg:hidden`}
+                className={`${secondaryButtonClass} h-9 rounded-xl lg:hidden`}
                 onClick={() => setDrawerOpen(true)}
                 type="button"
               >
-                <Filter className="h-4 w-4" aria-hidden="true" />
+                <Filter className="h-4 w-4 text-accent" aria-hidden="true" />
                 Filters
               </button>
+              
               {isAuthLoading ? (
                 <div className="h-9 w-9 animate-pulse rounded-full bg-surface-raised" />
               ) : user ? (
                 <Link
                   href="/profile"
                   aria-label="Profile"
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-sm font-semibold text-accent-contrast"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-xs font-bold text-accent-contrast shadow-subtle border border-white/10"
                 >
                   {user.name.charAt(0).toUpperCase()}
                 </Link>
               ) : (
-                <Link className={secondaryButtonClass} href="/login">
+                <Link className={`${secondaryButtonClass} h-9 rounded-xl`} href="/login">
                   Sign in
                 </Link>
               )}
+              
               <Link
                 href="/cart"
                 aria-label="Cart"
-                className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-surface text-foreground-secondary transition-colors hover:bg-surface-hover hover:text-foreground"
+                className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-surface text-foreground-secondary transition-all duration-200 hover:bg-surface-hover hover:text-foreground hover:scale-105 shadow-sm"
               >
-                <ShoppingCart className="h-[18px] w-[18px]" aria-hidden="true" />
+                <ShoppingCart className="h-[17px] w-[17px] text-foreground-secondary group-hover:text-accent" aria-hidden="true" />
               </Link>
             </div>
           </div>
 
-          <form className="mt-3" onSubmit={handleSearch}>
-            <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-surface px-3.5 shadow-subtle transition-all duration-ui focus-within:border-accent/40 focus-within:ring-2 focus-within:ring-accent/10 sm:h-12">
+          <form className="mt-3.5" onSubmit={handleSearch}>
+            <label className="flex h-11 items-center gap-2.5 rounded-xl border border-border bg-surface px-3.5 shadow-subtle transition-all duration-200 focus-within:border-accent/40 focus-within:ring-2 focus-within:ring-accent/10 sm:h-11.5">
               <Search className="h-[18px] w-[18px] shrink-0 text-accent" aria-hidden="true" />
               <span className="sr-only">Search stores</span>
               <input
-                className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-foreground-muted"
+                className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-foreground-muted font-medium"
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search stores, hostels, rooms..."
+                placeholder="Search stores, hostels, room numbers..."
                 value={search}
               />
             </label>
@@ -580,7 +583,7 @@ export function StoreDirectory() {
       </div>
 
       <div className="mx-auto grid w-full max-w-content-wide flex-1 gap-5 px-4 pt-5 sm:px-5 lg:grid-cols-[280px_minmax(0,1fr)] lg:px-7">
-        <aside className="sticky top-[7.25rem] hidden h-[calc(100vh-8rem)] overflow-hidden rounded-2xl border border-border bg-surface shadow-card page-fade-in lg:block">
+        <aside className="sticky top-[7.5rem] hidden h-[calc(100vh-9rem)] overflow-hidden rounded-2xl border border-border bg-surface shadow-card page-fade-in lg:block">
           {FilterContent}
         </aside>
 
@@ -591,15 +594,15 @@ export function StoreDirectory() {
             </div>
           ) : null}
 
-          <MarketSurface className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <MarketSurface className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between shadow-sm">
             <div>
               <div className="flex items-center gap-2">
                 <SlidersHorizontal className="h-4 w-4 text-accent" aria-hidden="true" />
-                <h2 className="text-base font-semibold text-foreground">
+                <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">
                   {submittedSearch ? 'Search results' : 'All stores'}
                 </h2>
               </div>
-              <p className="mt-1 text-xs text-foreground-muted">
+              <p className="mt-1 text-xs text-foreground-muted font-semibold">
                 {isLoading
                   ? 'Loading campus stores...'
                   : `${visibleStores.length} of ${pagination?.total ?? stores.length} stores shown`}
@@ -607,11 +610,11 @@ export function StoreDirectory() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {deferredFilterSearch !== filters.filterSearch ? (
-                <span className="text-xs font-medium text-foreground-muted">Updating filters...</span>
+                <span className="text-[11px] font-bold text-accent animate-pulse">Updating filters...</span>
               ) : null}
               <SelectShell>
                 <select
-                  className={`${selectClass} mt-0 h-9 py-0 text-xs`}
+                  className={`${selectClass} mt-0 h-8 py-0 text-xs px-2.5 font-semibold bg-surface-raised`}
                   onChange={(event) => updateFilter('sort', event.target.value as SortMode)}
                   value={filters.sort}
                 >
@@ -623,29 +626,43 @@ export function StoreDirectory() {
             </div>
           </MarketSurface>
 
-          {activeChips.length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {activeChips.map((chip) => (
+          {/* Active Chips animate in and out seamlessly */}
+          <AnimatePresence>
+            {activeChips.length > 0 ? (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                className="mt-3.5 flex flex-wrap gap-2 items-center"
+              >
+                {activeChips.map((chip) => (
+                  <motion.button
+                    layoutId={`chip-${chip.key}`}
+                    className={`${badgeClass} hover:border-border-strong hover:bg-surface-hover hover:text-foreground text-[10px] font-semibold h-7 gap-1 px-2.5 rounded-lg active:scale-95`}
+                    key={`${chip.key}-${chip.label}`}
+                    onClick={() => removeChip(chip.key)}
+                    type="button"
+                  >
+                    {chip.label}
+                    <X className="h-3 w-3 text-foreground-faint" aria-hidden="true" />
+                  </motion.button>
+                ))}
                 <button
-                  className={`${badgeClass} hover:border-border-strong hover:bg-surface-hover`}
-                  key={`${chip.key}-${chip.label}`}
-                  onClick={() => removeChip(chip.key)}
+                  className={`${secondaryButtonClass} h-7 text-[10px] px-2.5 rounded-lg border-dashed font-bold`}
+                  onClick={clearFilters}
                   type="button"
                 >
-                  {chip.label}
-                  <X className="h-3 w-3" aria-hidden="true" />
+                  Clear all
                 </button>
-              ))}
-              <button className={secondaryButtonClass} onClick={clearFilters} type="button">
-                Clear all
-              </button>
-            </div>
-          ) : null}
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
 
+          {/* Skeleton Loaders and Grid entries reveal staggered */}
           {isLoading ? (
-            <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {[0, 1, 2, 3, 4, 5].map((item) => (
-                <CardSkeleton className="h-full min-h-56" key={item} />
+                <CardSkeleton className="h-full min-h-56 shadow-sm" key={item} />
               ))}
             </div>
           ) : visibleStores.length === 0 ? (
@@ -665,48 +682,69 @@ export function StoreDirectory() {
                 }
                 description={
                   activeChips.length > 0
-                    ? 'Try widening the price, hostel, or availability filters.'
-                    : 'Approved sellers appear here as soon as their store is created.'
+                    ? 'Try widening the price range, hostel filters, or checking availability.'
+                    : 'Campus startup canteens and stores will appear here once approved.'
                 }
                 icon={activeChips.length > 0 ? PackageSearch : StoreIcon}
-                title={activeChips.length > 0 ? 'No matching stores' : 'No stores yet'}
+                title={activeChips.length > 0 ? 'No matching stores' : 'No campus stores yet'}
               />
             </div>
           ) : (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <motion.div
+              layout
+              className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+            >
               {visibleStores.map((store) => (
-                <div key={store.id} className="space-y-2">
+                <motion.div
+                  layout
+                  key={store.id}
+                  className="space-y-1.5"
+                >
                   <StoreCard store={store} variant="grid" />
-                  <p className="px-1 text-[11px] text-foreground-faint">
+                  <p className="px-1 text-[10px] font-bold text-foreground-faint tracking-wide uppercase">
                     {formatStoreAge(store.createdAt)}
                   </p>
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           )}
         </main>
       </div>
 
-      {drawerOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            aria-label="Close filters"
-            className="absolute inset-0 bg-black/55 transition-opacity duration-ui"
-            onClick={() => setDrawerOpen(false)}
-            type="button"
-          />
-          <div className="absolute inset-y-0 left-0 w-[min(88vw,360px)] border-r border-border bg-surface shadow-card transition-transform duration-ui">
-            <button
-              className="absolute right-3 top-3 z-10 rounded-lg border border-border bg-surface-raised p-2 text-foreground-secondary"
+      {/* Animate mobile filter drawer seamlessly */}
+      <AnimatePresence>
+        {drawerOpen ? (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            {/* Backdrop overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
               onClick={() => setDrawerOpen(false)}
-              type="button"
+            />
+            
+            {/* Drawer body */}
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+              className="absolute inset-y-0 left-0 w-[min(88vw,340px)] border-r border-border bg-surface shadow-card flex flex-col h-full"
             >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-            {FilterContent}
+              <button
+                className="absolute right-3.5 top-3.5 z-10 rounded-xl border border-border bg-surface-raised p-2 text-foreground-secondary hover:text-foreground active:scale-90 transition-all"
+                onClick={() => setDrawerOpen(false)}
+                type="button"
+                aria-label="Close filters"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+              {FilterContent}
+            </motion.div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

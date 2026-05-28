@@ -12,6 +12,7 @@ import {
   Store,
   StoreIcon,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import {
   EmptyState,
@@ -106,7 +107,7 @@ export default function StoreOwnerRequestPage() {
       <PageContainer>
         <div className="flex flex-col items-center gap-3 py-16">
           <LoadingSpinner className="h-6 w-6" />
-          <p className="text-sm text-foreground-muted">Checking access…</p>
+          <p className="text-xs font-semibold text-foreground-muted">Checking seller credentials...</p>
         </div>
       </PageContainer>
     );
@@ -140,7 +141,7 @@ export default function StoreOwnerRequestPage() {
     }
   };
 
-  const latestRequest = requests[0];
+
   const approvedRequest = requests.find((request) => request.status === 'APPROVED');
   const pendingRequest = requests.find((request) => request.status === 'PENDING');
   const rejectedRequest = requests.find((request) => request.status === 'REJECTED');
@@ -149,23 +150,27 @@ export default function StoreOwnerRequestPage() {
 
   return (
     <PageContainer size="wide">
-      <SectionHeader description="Submit store details for admin review." title="Open a store" />
-      <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,380px)_1fr]">
-        <MarketSurface className="overflow-hidden">
-          <div className="border-b border-border bg-surface-raised p-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-accent text-accent-contrast">
+      <SectionHeader description="Submit canteen details to student affairs and canteens admin review panel." title="Become a Seller" />
+      
+      <section className="mt-6 grid gap-6 lg:grid-cols-[380px_1fr]">
+        {/* Form request container */}
+        <MarketSurface className="overflow-hidden h-fit shadow-card border border-border glass-panel">
+          <div className="border-b border-border bg-surface-raised p-5 relative">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.06),transparent_35%)] pointer-events-none" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-accent-contrast shadow-subtle">
               <StoreIcon className="h-5 w-5" aria-hidden="true" />
             </div>
-            <h2 className="mt-4 text-lg font-semibold text-foreground">Application</h2>
-            <p className="mt-1 text-sm text-foreground-muted">Hostel, room, and store name.</p>
+            <h2 className="mt-3.5 text-base font-extrabold text-foreground leading-tight">Onboarding Request</h2>
+            <p className="mt-1 text-xs text-foreground-muted font-medium">Verify your hostel block location details.</p>
           </div>
-          <div className="p-6">
+          
+          <div className="p-5">
             <form className="space-y-4" onSubmit={handleSubmit}>
               <label className="block">
-                <span className={labelClass}>Hostel</span>
+                <span className={labelClass}>Hostel Block</span>
                 <SelectShell>
-                  <select className={selectClass} name="hostelId" required>
-                    <option value="">Select hostel</option>
+                  <select className={selectClass} name="hostelId" required disabled={!canSubmit}>
+                    <option value="">Select hostel block</option>
                     {hostels.map((hostel) => (
                       <option key={hostel.id} value={hostel.id}>
                         {hostel.name}
@@ -174,181 +179,210 @@ export default function StoreOwnerRequestPage() {
                   </select>
                 </SelectShell>
               </label>
+              
               <label className="block">
-                <span className={labelClass}>Store name</span>
+                <span className={labelClass}>Store Name</span>
                 <input
                   className={fieldClass}
                   name="storeName"
                   minLength={2}
                   placeholder="Example: Night Canteen"
                   required
+                  disabled={!canSubmit}
                 />
               </label>
+              
               <label className="block">
-                <span className={labelClass}>Room number</span>
+                <span className={labelClass}>Room / Stall Number</span>
                 <input
                   className={fieldClass}
                   name="roomNumber"
                   placeholder="Example: B-214"
                   required
+                  disabled={!canSubmit}
                 />
               </label>
+              
               <button
-                className={`${primaryButtonClass} w-full`}
+                className={`${primaryButtonClass} w-full mt-2 elevated-hover`}
                 disabled={isSubmitting || !canSubmit}
                 type="submit"
               >
                 {isSubmitting ? (
                   <>
-                    <LoadingSpinner />
-                    Submitting
+                    <LoadingSpinner className="h-4 w-4" />
+                    Submitting...
                   </>
                 ) : approvedRequest ? (
-                  'Seller tools unlocked'
+                  'Seller access active'
                 ) : pendingRequest ? (
-                  'Review in progress'
+                  'Verification pending'
                 ) : rejectedRequest ? (
                   'Retry application'
                 ) : (
-                  'Submit request'
+                  'Submit canteen request'
                 )}
               </button>
             </form>
-            {message ? (
-              <div className="mt-4">
-                <Notice
-                  tone={
-                    message.includes('failed') || message.includes('Unable') ? 'danger' : 'success'
-                  }
+            
+            <AnimatePresence>
+              {message ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="mt-4"
                 >
-                  {message}
-                </Notice>
-              </div>
-            ) : null}
+                  <Notice
+                    tone={
+                      message.includes('failed') || message.includes('Unable') ? 'danger' : 'success'
+                    }
+                  >
+                    {message}
+                  </Notice>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
         </MarketSurface>
 
-        <MarketSurface className="p-6">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Your requests</h2>
-            </div>
-            <span className="rounded-full bg-surface-raised px-3 py-1 text-xs font-medium text-foreground-muted">
-              {requests.length} total
+        {/* Visual timeline request flow */}
+        <MarketSurface className="p-5 sm:p-6 shadow-card border border-border glass-panel">
+          <div className="flex items-center justify-between border-b border-border-subtle pb-4.5 mb-5">
+            <h2 className="text-sm font-extrabold text-foreground uppercase tracking-wider">Merchant Launch Journey</h2>
+            <span className="rounded-lg border border-border bg-surface-raised px-2.5 py-0.75 text-[10px] font-bold text-foreground-secondary shadow-subtle uppercase">
+              {requests.length} Application{requests.length === 1 ? '' : 's'}
             </span>
           </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-5">
+
+          <div className="grid gap-3.5 sm:grid-cols-5">
             {[
-              { icon: HelpCircle, label: 'Apply', text: 'Send store details' },
-              { icon: Clock3, label: 'Review', text: 'Admin checks fit' },
-              { icon: CheckCircle2, label: 'Launch', text: 'Seller tools unlock' },
-              { icon: PackagePlus, label: 'Products', text: 'Add inventory' },
-              { icon: StoreIcon, label: 'Orders', text: 'Receive orders' },
-            ].map((step) => {
+              { icon: HelpCircle, label: '1. Apply', text: 'Register store location details.' },
+              { icon: Clock3, label: '2. Review', text: 'Admin review and credentials check.' },
+              { icon: CheckCircle2, label: '3. Launch', text: 'Onboarding tools unlocked.' },
+              { icon: PackagePlus, label: '4. Products', text: 'Add canteen inventory.' },
+              { icon: Store, label: '5. Orders', text: 'Receive customer bookings.' },
+            ].map((step, idx) => {
               const Icon = step.icon;
+              const isApproved = Boolean(approvedRequest);
+              const isActiveStep = idx === 0 || (idx === 1 && pendingRequest) || (idx > 1 && isApproved);
 
               return (
-                <div
-                  className={`rounded-lg border p-3 ${
-                    approvedRequest
-                      ? 'border-accent/30 bg-accent-muted'
-                      : latestRequest
-                        ? 'border-border bg-surface-raised'
-                        : 'border-border bg-surface'
-                  }`}
+                <motion.div
                   key={step.label}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 28, delay: idx * 0.06 }}
+                  className={`rounded-xl border p-3.5 transition-all duration-200 ${
+                    isActiveStep
+                      ? 'border-accent/20 bg-accent-muted/40 shadow-subtle'
+                      : 'border-border bg-surface-raised/40 opacity-55'
+                  }`}
                 >
-                  <Icon className="h-4 w-4 text-accent" aria-hidden="true" />
-                  <p className="mt-2 text-sm font-semibold text-foreground">{step.label}</p>
-                  <p className="mt-1 text-xs font-medium text-foreground-muted">{step.text}</p>
-                </div>
+                  <Icon className={`h-[18px] w-[18px] ${isActiveStep ? 'text-accent' : 'text-foreground-faint'}`} aria-hidden="true" />
+                  <p className="mt-2.5 text-xs font-bold text-foreground leading-tight">{step.label}</p>
+                  <p className="mt-1 text-[10px] leading-relaxed text-foreground-muted font-medium">{step.text}</p>
+                </motion.div>
               );
             })}
           </div>
-          {approvedRequest ? (
-            <div className="mt-5 rounded-xl border border-accent/25 bg-accent-muted p-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    Your seller access is active
-                  </p>
-                  <p className="mt-1 text-xs leading-relaxed text-foreground-secondary">
-                    {firstStore
-                      ? `${firstStore.name} is live in the marketplace. You can manage the store, add products, and open the seller dashboard.`
-                      : 'Your request is approved. Seller tools are unlocked and your store will appear as soon as it finishes syncing.'}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {firstStore ? (
-                    <Link className={secondaryButtonClass} href={`/stores/${firstStore.id}`}>
-                      Visit Store
-                    </Link>
-                  ) : null}
-                  <Link className={secondaryButtonClass} href="/store-owner/stores">
-                    Manage Store
-                  </Link>
-                  <Link className={primaryButtonClass} href="/store-owner/inventory">
-                    Open Seller Dashboard
-                    <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ) : pendingRequest ? (
-            <Notice tone="warning">
-              Your request is being reviewed. This page refreshes automatically while you wait.
-            </Notice>
-          ) : rejectedRequest ? (
-            <Notice tone="danger">
-              Your last request was rejected. Update the details and submit again when you are
-              ready.
-            </Notice>
-          ) : null}
-          {requests.length > 0 ? (
-            <div className="mt-5 space-y-3">
-              {requests.map((request) => (
-                <article
-                  className="rounded-lg border border-border bg-surface p-4 shadow-sm"
-                  key={request.id}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-bold text-foreground">{request.storeName}</p>
-                      <p className="mt-1 text-xs font-medium text-foreground-secondary">
-                        {request.hostel.name} - Room {request.roomNumber}
-                      </p>
-                    </div>
-                    <span
-                      className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                        request.status === 'APPROVED'
-                          ? 'bg-emerald-500/10 text-emerald-300'
-                          : request.status === 'REJECTED'
-                            ? 'bg-red-500/10 text-red-300'
-                            : 'bg-amber-500/10 text-amber-200'
-                      }`}
-                    >
-                      {request.status}
-                    </span>
+
+          {/* Conditional success alerts */}
+          <AnimatePresence>
+            {approvedRequest ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+                className="mt-5 rounded-2xl border border-accent/25 bg-accent-muted/30 p-5 shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent)_10%,transparent),0_8px_24px_-8px_color-mix(in_srgb,var(--accent)_20%,transparent)]"
+              >
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground">Your store application is approved!</p>
+                    <p className="mt-1.5 text-xs leading-relaxed text-foreground-secondary font-medium">
+                      {firstStore
+                        ? `Congratulations! ${firstStore.name} is now live and listed inside the campus marketplace. Start managing items, updating stock counts, and collecting student bookings.`
+                        : 'Your application is approved. Onboarding tools are unlocked, and your store will sync into the canteens registry momentarily.'}
+                    </p>
                   </div>
-                  {request.status === 'APPROVED' ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Link className={secondaryButtonClass} href="/store-owner/stores">
-                        Manage Store
+                  <div className="flex flex-wrap gap-2 shrink-0">
+                    {firstStore ? (
+                      <Link className={`${secondaryButtonClass} h-9 text-xs rounded-xl shadow-sm`} href={`/stores/${firstStore.id}`}>
+                        Visit Live Shop
                       </Link>
-                      <Link className={primaryButtonClass} href="/store-owner/inventory">
-                        Add Products
-                      </Link>
-                    </div>
-                  ) : null}
-                </article>
+                    ) : null}
+                    <Link className={`${secondaryButtonClass} h-9 text-xs rounded-xl shadow-sm`} href="/store-owner/stores">
+                      Configure Stores
+                    </Link>
+                    <Link className={`${primaryButtonClass} h-9 text-xs rounded-xl shadow-sm inline-flex items-center gap-1`} href="/store-owner/inventory">
+                      Manage Inventory
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              </motion.div>
+            ) : pendingRequest ? (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-5"
+              >
+                <Notice tone="warning">
+                  Your registration details are currently undergoing verification. Please wait, this console updates live automatically.
+                </Notice>
+              </motion.div>
+            ) : rejectedRequest ? (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-5"
+              >
+                <Notice tone="danger">
+                  Your store application was rejected. Please review hostel locations and room numbers and submit an updated application.
+                </Notice>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+
+          {/* List of past request applications */}
+          {requests.length > 0 ? (
+            <div className="mt-5 space-y-3.5">
+              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Application Registry</h3>
+              {requests.map((request) => (
+                <motion.article
+                  key={request.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+                  className="rounded-xl border border-border bg-surface p-4 shadow-sm flex items-center justify-between gap-4 transition-all duration-200 hover:border-border-strong hover:shadow-card-hover hover:-translate-y-[1px]"
+                >
+                  <div>
+                    <p className="text-sm font-bold text-foreground leading-tight">{request.storeName}</p>
+                    <p className="mt-1 text-xs font-semibold text-foreground-secondary">
+                      {request.hostel.name} · Room {request.roomNumber}
+                    </p>
+                  </div>
+                  
+                  <span
+                    className={`rounded-lg px-2.5 py-1 text-[10px] font-bold shadow-subtle ${
+                      request.status === 'APPROVED'
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        : request.status === 'REJECTED'
+                          ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                          : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
+                    }`}
+                  >
+                    {request.status}
+                  </span>
+                </motion.article>
               ))}
             </div>
           ) : (
             <div className="mt-6">
               <EmptyState
-                description="Submitted applications appear here."
+                description="Submitted onboarding canteen requests will display here in real time."
                 icon={Store}
-                title="No requests yet"
+                title="No request history yet"
               />
             </div>
           )}

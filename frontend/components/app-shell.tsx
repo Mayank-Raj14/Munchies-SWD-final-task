@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import { BrandMark } from '@/components/brand-assets';
 import { Sidebar } from '@/components/sidebar';
@@ -26,9 +28,7 @@ function getPageTitle(pathname: string) {
   if (pageTitles[pathname]) {
     return pageTitles[pathname];
   }
-
   const match = Object.entries(pageTitles).find(([path]) => pathname.startsWith(`${path}/`));
-
   return match?.[1] ?? 'Munchies';
 }
 
@@ -39,17 +39,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isBrowseRoute = browseRoutes.has(pathname);
   const title = getPageTitle(pathname);
 
+  const [collapsed, setCollapsed] = useState(false);
+
   if (isAuthRoute) return children;
   if (pathname === '/admin') return children;
 
+  const sidebarWidth = collapsed ? '4.75rem' : '15rem';
+
   return (
-    <div className="min-h-screen bg-canvas lg:pl-sidebar">
-      <Sidebar />
+    <div
+      style={{ '--sidebar-width': sidebarWidth } as React.CSSProperties}
+      className="min-h-screen bg-canvas lg:pl-[var(--sidebar-width)] transition-[padding] duration-300 ease-[cubic-bezier(0.32,0,0.67,0)]"
+    >
+      <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
 
       <div className="flex min-h-screen min-w-0 flex-col overflow-x-clip">
         {!isBrowseRoute ? (
-          <header className="sticky top-0 z-30 border-b border-border-subtle bg-canvas/90 shadow-header backdrop-blur-md">
-            <div className="flex h-12 items-center gap-3 px-4 sm:px-5 lg:px-7">
+          <header className="sticky top-0 z-30 border-b border-border-subtle bg-canvas/80 shadow-header backdrop-blur-xl will-change-transform">
+            <div className="flex h-14 items-center gap-3 px-4 sm:px-5 lg:px-7">
               <Link
                 href="/"
                 className="flex shrink-0 items-center text-[15px] font-semibold tracking-tight text-foreground lg:hidden"
@@ -57,9 +64,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <BrandMark compact />
               </Link>
 
-              <h1 className="hidden min-w-0 truncate text-sm font-medium text-foreground lg:block">
+              <motion.h1
+                key={pathname}
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 32, duration: 0.25 }}
+                className="hidden min-w-0 truncate text-sm font-bold text-foreground lg:block tracking-tight"
+              >
                 {title}
-              </h1>
+              </motion.h1>
 
               <div className="ml-auto flex items-center gap-2">
                 {isLoading ? (
@@ -68,21 +81,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <Link
                     href="/profile"
                     aria-label="Profile"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-contrast transition-opacity duration-ui hover:opacity-90"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent text-xs font-bold text-accent-contrast transition-all duration-200 hover:opacity-85 hover:scale-105 active:scale-95 shadow-subtle border border-white/10"
                   >
                     {user.name.charAt(0).toUpperCase()}
                   </Link>
                 ) : (
-                  <div className="flex items-center gap-1.5 text-sm font-medium">
+                  <div className="flex items-center gap-2 text-xs font-bold">
                     <Link
                       href="/login"
-                      className="rounded-lg px-2.5 py-1.5 text-foreground-secondary transition-colors duration-ui hover:text-foreground"
+                      className="rounded-xl border border-border bg-surface px-3 py-1.5 text-foreground-secondary transition-all duration-200 hover:text-foreground hover:border-border-strong hover:bg-surface-raised"
                     >
                       Login
                     </Link>
                     <Link
                       href="/register"
-                      className="rounded-lg bg-accent px-2.5 py-1.5 text-accent-contrast transition-opacity duration-ui hover:opacity-90"
+                      className="rounded-xl bg-accent px-3 py-1.5 text-accent-contrast transition-all duration-200 hover:opacity-90 hover:scale-[1.03] active:scale-95 shadow-subtle"
                     >
                       Join
                     </Link>
@@ -93,7 +106,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </header>
         ) : null}
 
-        {children}
+        {/* Smooth staggered page transitions */}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={pathname}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 32, mass: 0.75 }}
+            className="flex-1 flex flex-col will-change-transform"
+          >
+            {children}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );

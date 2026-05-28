@@ -31,7 +31,6 @@ export default function ProfilePage() {
   const [message, setMessage] = useState('');
   const [preferenceMessage, setPreferenceMessage] = useState('');
   const [isDashboardLoading, setIsDashboardLoading] = useState(true);
-  const [hasLoadedDashboard, setHasLoadedDashboard] = useState(false);
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
 
   const loadDashboard = useCallback(async (options?: { silent?: boolean }) => {
@@ -49,7 +48,6 @@ export default function ProfilePage() {
       const bookingData = await getBookings('personal');
 
       setBookings(bookingData.bookings);
-      setHasLoadedDashboard(true);
       setMessage('');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to refresh account center.');

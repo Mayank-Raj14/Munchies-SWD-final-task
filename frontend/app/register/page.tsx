@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 import { ArrowRight, LockKeyhole, Mail, User } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import {
   AuthHero,
@@ -36,11 +37,7 @@ export default function RegisterPage() {
       });
       saveAuthToken(result.token);
       setUserFromAuth(result.user);
-
-      // Refresh user to sync latest role from backend
-      // This ensures admin role is immediately visible after promotion
       await refreshUser({ silent: false });
-
       router.replace('/');
     } catch (error) {
       setMessage(
@@ -55,88 +52,131 @@ export default function RegisterPage() {
 
   return (
     <main className="bg-grid-soft relative flex min-h-screen items-center justify-center overflow-hidden bg-[#09090b] px-4 py-10 sm:px-6">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.14),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.04),transparent_30%)]" />
-      <section className={authShellClass}>
+      {/* Layered ambient glows */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(249,115,22,0.15),transparent_40%),radial-gradient(ellipse_at_bottom_right,rgba(255,255,255,0.03),transparent_45%)]" />
+      <div className="pointer-events-none absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-accent/25 to-transparent" />
+
+      <motion.section
+        initial={{ opacity: 0, scale: 0.97, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 280, damping: 28, mass: 0.9 }}
+        className={authShellClass}
+      >
         <AuthHero
-          eyebrow="New account"
-          points={['Browse nearby stores', 'Track live order status', 'Manage seller tools later']}
-          subtitle="Create an account once and keep ordering, selling, and tracking from one campus workspace."
-          title="Create your Munchies account"
+          eyebrow="Create student account"
+          points={[
+            'Explore local hostel canteens',
+            'Live staggered order tracking',
+            'Unlock merchant tools instantly',
+          ]}
+          subtitle="Join with a single campus account to order delicious meals or configure your own canteen store block."
+          title="Start ordering with Munchies"
         />
-        <div className="p-6 sm:p-8 lg:p-10">
-          <Link className="text-xl font-semibold tracking-tight text-white lg:hidden" href="/">
+
+        <div className="p-6 sm:p-8 lg:p-10 flex flex-col justify-center bg-[#09090b]/70 relative">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(249,115,22,0.04),transparent_55%)]" />
+
+          <Link className="relative text-xl font-black tracking-tight text-white lg:hidden mb-2" href="/">
             Munchies
           </Link>
-          <h1 className="mt-8 text-3xl font-semibold tracking-tight text-white lg:mt-0">
-            Create account
+
+          <h1 className="relative mt-8 text-2xl font-black tracking-tight text-white lg:mt-0">
+            Get Started
           </h1>
-          <p className="mt-2 text-sm leading-6 text-slate-400">
-            Join with your name, email, and a secure password.
+
+          <p className="relative mt-1.5 text-xs font-medium text-slate-400">
+            Create an account to browse campus canteens.
           </p>
-          <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
-            <label className="block">
-              <span className="flex items-center gap-2 text-sm font-medium text-slate-300">
-                <User className="h-4 w-4 text-orange-400" aria-hidden="true" />
-                Name
-              </span>
-              <input
-                className={fieldClass}
-                name="name"
-                type="text"
-                autoComplete="name"
-                minLength={2}
-                required
-              />
-            </label>
-            <label className="block">
-              <span className="flex items-center gap-2 text-sm font-medium text-slate-300">
-                <Mail className="h-4 w-4 text-orange-400" aria-hidden="true" />
-                Email
-              </span>
-              <input
-                className={fieldClass}
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-              />
-            </label>
-            <label className="block">
-              <span className="flex items-center gap-2 text-sm font-medium text-slate-300">
-                <LockKeyhole className="h-4 w-4 text-orange-400" aria-hidden="true" />
-                Password
-              </span>
-              <input
-                className={fieldClass}
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-                required
-              />
-            </label>
-            <button
-              className={`${primaryButtonClass} h-11 w-full bg-orange-500 text-white hover:bg-orange-400`}
+
+          <form className="relative mt-7 space-y-4" onSubmit={handleSubmit}>
+            {[
+              {
+                name: 'name',
+                label: 'Full Name',
+                icon: User,
+                type: 'text',
+                autoComplete: 'name',
+                minLength: 2,
+                placeholder: 'Alex Mercer',
+              },
+              {
+                name: 'email',
+                label: 'Email Address',
+                icon: Mail,
+                type: 'email',
+                autoComplete: 'email',
+                placeholder: 'alex@university.edu',
+              },
+              {
+                name: 'password',
+                label: 'Choose Password',
+                icon: LockKeyhole,
+                type: 'password',
+                autoComplete: 'new-password',
+                minLength: 8,
+                placeholder: 'Min. 8 characters',
+              },
+            ].map(({ name, label, icon: Icon, type, autoComplete, minLength, placeholder }, i) => (
+              <motion.label
+                key={name}
+                className="block"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.06 * i, type: 'spring', stiffness: 340, damping: 28 }}
+              >
+                <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1.5">
+                  <Icon className="h-3 w-3 text-accent" aria-hidden="true" />
+                  {label}
+                </span>
+                <input
+                  className={fieldClass}
+                  name={name}
+                  type={type}
+                  autoComplete={autoComplete}
+                  minLength={minLength}
+                  placeholder={placeholder}
+                  required
+                />
+              </motion.label>
+            ))}
+
+            <motion.button
+              whileHover={{ scale: 1.01, translateY: -2 }}
+              whileTap={{ scale: 0.98 }}
+              className={`${primaryButtonClass} h-11 w-full mt-2`}
               disabled={isSubmitting}
               type="submit"
             >
-              {isSubmitting ? 'Creating account...' : 'Register'}
-              {!isSubmitting ? <ArrowRight className="h-4 w-4" aria-hidden="true" /> : null}
-            </button>
+              {isSubmitting ? 'Creating account…' : 'Create Account'}
+              {!isSubmitting ? <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" /> : null}
+            </motion.button>
           </form>
-          {message ? (
-            <p className="mt-4 rounded-xl border border-red-400/25 bg-red-500/10 px-3 py-2 text-sm font-bold text-red-200">
-              {message}
-            </p>
-          ) : null}
-          <p className="mt-6 text-sm text-slate-400">
-            Already registered?{' '}
-            <Link className="font-medium text-orange-400 hover:text-orange-300" href="/login">
-              Login
+
+          <AnimatePresence>
+            {message ? (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                className="relative mt-4 rounded-xl border border-red-500/15 bg-red-500/5 px-4 py-3 text-xs font-semibold text-red-300"
+              >
+                {message}
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+
+          <p className="relative mt-7 text-xs font-medium text-slate-400">
+            Already have an account?{' '}
+            <Link
+              className="font-bold text-accent hover:text-orange-400 transition-colors duration-150"
+              href="/login"
+            >
+              Sign in
             </Link>
           </p>
         </div>
-      </section>
+      </motion.section>
     </main>
   );
 }

@@ -1,6 +1,9 @@
+'use client';
+
 import Link from 'next/link';
 import { memo } from 'react';
 import { ChevronRight, Clock3, MapPin, PackageCheck, Star, Store } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 import { MediaFallback } from '@/components/brand-assets';
 import type { Store as StoreType } from '@/types/store';
@@ -11,9 +14,9 @@ type StoreCardProps = {
 };
 
 const headerTones = [
-  'from-emerald-500/20 via-surface-raised to-surface-muted',
-  'from-amber-500/15 via-surface-raised to-surface-muted',
-  'from-sky-500/15 via-surface-raised to-surface-muted',
+  'from-emerald-500/20 via-surface-raised/80 to-surface',
+  'from-orange-500/15 via-surface-raised/80 to-surface',
+  'from-sky-500/15 via-surface-raised/80 to-surface',
 ];
 
 function getHeaderTone(name: string) {
@@ -33,96 +36,111 @@ function StoreCardComponent({ store, variant = 'list' }: StoreCardProps) {
 
   if (variant === 'grid') {
     return (
-      <Link
-        href={`/stores/${store.id}`}
-        className="group elevated-hover page-fade-in flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-card transition-all duration-ui hover:border-border-strong hover:shadow-card-hover"
-      >
-        <div className={`relative h-32 bg-gradient-to-br ${headerTone}`}>
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.14),transparent_42%)]" />
-          <span className="absolute left-3 top-3 rounded-md bg-canvas/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-foreground-secondary backdrop-blur-sm">
-            {store.hostel.name}
-          </span>
-          <div className="absolute inset-x-3 bottom-3">
-            <MediaFallback
-              className="h-16 rounded-2xl border border-border-subtle bg-canvas/30 backdrop-blur-sm"
-              icon="store"
-              subtitle={`Room ${store.roomNumber}`}
-              title={store.name}
-            />
+      <Link href={`/stores/${store.id}`} className="block h-full group">
+        <motion.div
+          whileHover={{ y: -4, scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-card hover:border-border-strong hover:shadow-card-hover"
+        >
+          {/* Header tone banner with dynamic gradient */}
+          <div className={`relative h-28 bg-gradient-to-br ${headerTone} transition-all duration-300 group-hover:opacity-90`}>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_45%)]" />
+            <span className="absolute left-3 top-3 rounded-lg border border-white/5 bg-canvas/90 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-foreground-secondary backdrop-blur-sm shadow-sm">
+              {store.hostel.name}
+            </span>
+            <div className="absolute inset-x-3 bottom-3">
+              <MediaFallback
+                className="h-14 rounded-xl border border-border-subtle bg-canvas/20 backdrop-blur-md shadow-sm"
+                icon="store"
+                subtitle={`Room ${store.roomNumber}`}
+                title={store.name}
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="flex flex-1 flex-col p-3.5">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-raised text-sm font-bold text-accent shadow-subtle">
-              {initial}
+          <div className="flex flex-1 flex-col p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-raised text-xs font-bold text-accent shadow-subtle group-hover:bg-accent-muted group-hover:border-accent/20 transition-colors">
+                {initial}
+              </div>
+              <div className="min-w-0">
+                <h2 className="truncate text-sm font-bold text-foreground group-hover:text-accent transition-colors leading-tight">
+                  {store.name}
+                </h2>
+                <p className="mt-0.5 text-xs text-foreground-muted font-medium">Room {store.roomNumber}</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <h2 className="truncate text-base font-semibold text-foreground">{store.name}</h2>
-              <p className="mt-0.5 text-xs text-foreground-muted">Room {store.roomNumber}</p>
+            
+            <div className="mt-4 flex flex-wrap items-center gap-1.5 text-[10px] text-foreground-muted font-semibold">
+              <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-raised px-2 py-0.75 shadow-sm">
+                <Star className="h-3 w-3 text-amber-400 fill-amber-400" aria-hidden="true" />
+                {orderCount > 0 ? 'Popular' : 'New'}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-raised px-2 py-0.75 shadow-sm">
+                <PackageCheck className="h-3 w-3 text-accent" aria-hidden="true" />
+                {itemCount} items
+              </span>
             </div>
+            
+            <p className="mt-auto pt-4 text-[10px] text-foreground-faint font-semibold">
+              by {store.owner.name}
+            </p>
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] text-foreground-muted">
-            <span className="inline-flex items-center gap-1 rounded-md bg-surface-raised px-2 py-0.5">
-              <Star className="h-3 w-3 text-amber-400" aria-hidden="true" />
-              {orderCount > 0 ? 'Popular' : 'New'}
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-md bg-surface-raised px-2 py-0.5">
-              <PackageCheck className="h-3 w-3 text-accent" aria-hidden="true" />
-              {itemCount} items
-            </span>
-          </div>
-          <p className="mt-auto pt-3 text-[11px] text-foreground-faint">by {store.owner.name}</p>
-        </div>
+        </motion.div>
       </Link>
     );
   }
 
   return (
-    <Link
-      href={`/stores/${store.id}`}
-      className="group elevated-hover page-fade-in flex gap-3 rounded-2xl border border-border bg-surface p-3 shadow-card transition-all duration-ui hover:border-border-strong hover:shadow-card-hover sm:gap-4 sm:p-3.5"
-    >
-      <div
-        className={`relative flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-lg font-bold text-accent sm:h-20 sm:w-20 sm:text-xl ${headerTone}`}
+    <Link href={`/stores/${store.id}`} className="block group">
+      <motion.div
+        whileHover={{ y: -3, scale: 1.005 }}
+        whileTap={{ scale: 0.995 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+        className="flex gap-4 rounded-2xl border border-border bg-surface p-3.5 shadow-card hover:border-border-strong hover:shadow-card-hover"
       >
-        {initial}
-        <span className="absolute -bottom-1 -right-1 rounded-md border border-border bg-canvas px-1.5 py-0.5 text-[9px] font-semibold text-foreground-secondary">
-          {store.hostel.name.split(' ')[0]}
-        </span>
-      </div>
-
-      <div className="flex min-w-0 flex-1 flex-col justify-center">
-        <div className="flex items-start justify-between gap-2">
-          <h2 className="truncate text-[15px] font-semibold leading-snug text-foreground sm:text-base">
-            {store.name}
-          </h2>
-          <ChevronRight
-            className="mt-0.5 h-4 w-4 shrink-0 text-foreground-faint transition-transform duration-ui group-hover:translate-x-0.5 group-hover:text-accent"
-            aria-hidden="true"
-          />
-        </div>
-
-        <p className="mt-0.5 flex items-center gap-1 text-xs text-foreground-muted">
-          <MapPin className="h-3 w-3 shrink-0 text-accent" aria-hidden="true" />
-          {store.hostel.name} · Room {store.roomNumber}
-        </p>
-
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-foreground-faint">
-          <span className="inline-flex items-center gap-1 rounded-md bg-surface-raised px-2 py-0.5">
-            <Store className="h-3 w-3" aria-hidden="true" />
-            {categories.length > 0 ? categories.join(', ') : 'Hostel store'}
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-md bg-surface-raised px-2 py-0.5">
-            <Star className="h-3 w-3 text-amber-400" aria-hidden="true" />
-            {orderCount > 0 ? `${orderCount} orders` : 'New'}
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <Clock3 className="h-3 w-3" aria-hidden="true" />
-            {availableItems > 0 ? `${availableItems} available now` : 'Pickup on campus'}
+        <div
+          className={`relative flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-base font-extrabold text-accent sm:h-18 sm:w-18 shadow-sm ${headerTone}`}
+        >
+          {initial}
+          <span className="absolute -bottom-1 -right-1 rounded-md border border-border bg-canvas px-1.5 py-0.5 text-[9px] font-bold text-foreground-secondary shadow-subtle uppercase tracking-wider">
+            {store.hostel.name.split(' ')[0]}
           </span>
         </div>
-      </div>
+
+        <div className="flex min-w-0 flex-1 flex-col justify-center">
+          <div className="flex items-start justify-between gap-2">
+            <h2 className="truncate text-sm font-bold leading-tight text-foreground sm:text-base group-hover:text-accent transition-colors">
+              {store.name}
+            </h2>
+            <ChevronRight
+              className="mt-0.5 h-4 w-4 shrink-0 text-foreground-faint transition-all duration-200 group-hover:translate-x-1 group-hover:text-accent"
+              aria-hidden="true"
+            />
+          </div>
+
+          <p className="mt-1 flex items-center gap-1.5 text-xs text-foreground-muted font-medium">
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-accent" aria-hidden="true" />
+            {store.hostel.name} · Room {store.roomNumber}
+          </p>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-foreground-faint font-semibold">
+            <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-raised px-2 py-0.75 shadow-sm">
+              <Store className="h-3 w-3" aria-hidden="true" />
+              {categories.length > 0 ? categories.join(', ') : 'Hostel store'}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-raised px-2 py-0.75 shadow-sm">
+              <Star className="h-3 w-3 text-amber-400 fill-amber-400" aria-hidden="true" />
+              {orderCount > 0 ? `${orderCount} orders` : 'New'}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Clock3 className="h-3 w-3" aria-hidden="true" />
+              {availableItems > 0 ? `${availableItems} in stock` : 'Campus pickup'}
+            </span>
+          </div>
+        </div>
+      </motion.div>
     </Link>
   );
 }

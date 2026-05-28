@@ -1,6 +1,8 @@
 import { Router } from 'express';
 
 import { analyticsRouter } from './analytics.routes.js';
+import { adminModerationRouter } from './adminModeration.routes.js';
+
 import { authRouter } from './auth.routes.js';
 import { bookingRouter } from './booking.routes.js';
 import { campaignRouter } from './campaign.routes.js';
@@ -14,10 +16,10 @@ import {
   adminStoreOwnershipRequestRouter,
   storeOwnershipRequestRouter,
 } from './store-ownership-request.routes.js';
-
 export const apiRouter = Router();
 
 apiRouter.use('/analytics', analyticsRouter);
+
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/bookings', bookingRouter);
 apiRouter.use('/campaigns', campaignRouter);
@@ -30,3 +32,13 @@ apiRouter.use('/stores', storeRouter);
 apiRouter.use('/store-ownership-requests', storeOwnershipRequestRouter);
 apiRouter.use('/admin/governance', adminGovernanceRouter);
 apiRouter.use('/admin/store-ownership-requests', adminStoreOwnershipRequestRouter);
+
+import { adminRouter } from './admin.routes.js';
+apiRouter.use('/admin', adminRouter);
+apiRouter.use('/admin/moderation', adminModerationRouter);
+
+
+
+
+
+

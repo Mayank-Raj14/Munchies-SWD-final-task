@@ -1,3 +1,5 @@
+import type { Request } from 'express';
+import { prisma } from '../prisma/client.js';
 import type { Response } from 'express';
 
 import type { AuthenticatedRequest } from '../middleware/auth.middleware.js';
@@ -50,4 +52,24 @@ export const validateCoupon = async (req: AuthenticatedRequest, res: Response) =
     discountAmount: result.discountAmount,
     totalAmount: result.totalAmount,
   });
+};
+export const getActiveCampaigns = async (_req: Request, res: Response) => {
+  const now = new Date();
+
+  const campaigns = await prisma.campaign.findMany({
+    where: {
+      isActive: true,
+      startsAt: { lte: now },
+      endsAt: { gte: now },
+    },
+    include: {
+      store: {
+        select: { name: true, id: true },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+  });
+
+  res.status(200).json({ campaigns });
 };

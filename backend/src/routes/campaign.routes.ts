@@ -4,6 +4,7 @@ import { Router } from 'express';
 import {
   createStoreCampaign,
   deleteStoreCampaign,
+  getActiveCampaigns,
   getStoreCampaigns,
   toggleStoreCampaign,
   updateStoreCampaign,
@@ -22,6 +23,9 @@ import {
 } from '../validators/campaign.validator.js';
 
 export const campaignRouter = Router();
+
+// Public route — no auth needed
+campaignRouter.get('/active', asyncHandler(getActiveCampaigns));
 
 campaignRouter.use(authenticate);
 campaignRouter.post(

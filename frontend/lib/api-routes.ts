@@ -34,6 +34,7 @@ export const API_ROUTES = {
     cancellationReject: (bookingId: string) => `/bookings/${bookingId}/cancellation/reject`,
   },
   campaigns: {
+    active: '/campaigns/active',
     list: '/campaigns',
     validate: '/campaigns/validate',
     byId: (campaignId: string) => `/campaigns/${campaignId}`,

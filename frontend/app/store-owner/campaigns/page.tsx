@@ -38,9 +38,9 @@ import { useSyncedRefresh } from '@/lib/sync-events';
 
 import {
   createCampaign,
-  deactivateCampaign,
   deleteCampaign,
   getCampaigns,
+  toggleCampaignActive,
   updateCampaign,
 } from '@/services/campaigns';
 
@@ -287,7 +287,7 @@ export default function CampaignsPage() {
     });
   };
 
-  const handleDeactivate = async (campaignId: string) => {
+  const handleToggleCampaignStatus = async (campaignId: string, currentIsActive: boolean) => {
     if (busyId) {
       return;
     }
@@ -297,7 +297,8 @@ export default function CampaignsPage() {
     setError('');
 
     try {
-      const data = await deactivateCampaign(campaignId);
+      const newIsActive = !currentIsActive;
+      const data = await toggleCampaignActive(campaignId, newIsActive);
 
       setCampaigns((current) =>
         current.map((campaign) =>
@@ -305,11 +306,12 @@ export default function CampaignsPage() {
         ),
       );
 
-      setMessage(`${data.campaign.code} deactivated.`);
-    } catch (deactivateError) {
+      const action = newIsActive ? 'activated' : 'deactivated';
+      setMessage(`${data.campaign.code} ${action}.`);
+    } catch (toggleError) {
       setError(
-        deactivateError instanceof Error
-          ? deactivateError.message
+        toggleError instanceof Error
+          ? toggleError.message
           : 'Unable to update campaign status.',
       );
     } finally {
@@ -687,19 +689,17 @@ export default function CampaignsPage() {
                       </button>
 
                       <div className="flex items-center gap-1.5">
-                        {campaign.isActive ? (
-                          <button
-                            className={secondaryButtonClass}
-                            disabled={busyId === campaign.id}
-                            onClick={() => void handleDeactivate(campaign.id)}
-                            type="button"
-                          >
-                            {busyId === campaign.id ? (
-                              <LoadingSpinner className="h-3 w-3" />
-                            ) : null}
-                            Deactivate
-                          </button>
-                        ) : null}
+                        <button
+                          className={secondaryButtonClass}
+                          disabled={busyId === campaign.id}
+                          onClick={() => void handleToggleCampaignStatus(campaign.id, campaign.isActive)}
+                          type="button"
+                        >
+                          {busyId === campaign.id ? (
+                            <LoadingSpinner className="h-3 w-3" />
+                          ) : null}
+                          {campaign.isActive ? 'Deactivate' : 'Activate'}
+                        </button>
 
                         <button
                           aria-label="Delete campaign"

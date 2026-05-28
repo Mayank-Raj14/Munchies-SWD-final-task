@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { BadgePercent, ChevronLeft, ChevronRight, Megaphone } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { ChevronLeft, ChevronRight, Zap, Clock, Tag, Flame, Package, Rocket } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { buildApiUrl } from '@/lib/api-url';
@@ -28,7 +28,7 @@ const formatDiscount = (campaign: CampaignWithStore) => {
   if (campaign.type === 'PERCENTAGE') {
     return `${Number(campaign.value).toFixed(0)}% OFF`;
   }
-  return `Rs. ${Number(campaign.value).toFixed(0)} OFF`;
+  return `₹${Number(campaign.value).toFixed(0)} OFF`;
 };
 
 const formatExpiry = (endsAt: string) => {
@@ -36,17 +36,155 @@ const formatExpiry = (endsAt: string) => {
   const now = new Date();
   const diffMs = end.getTime() - now.getTime();
   const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
   const diffDays = Math.floor(diffHrs / 24);
 
-  if (diffDays > 0) return `Ends in ${diffDays}d`;
-  if (diffHrs > 0) return `Ends in ${diffHrs}h`;
+  if (diffDays > 0) return `${diffDays}d ${diffHrs % 24}h left`;
+  if (diffHrs > 0) return `${diffHrs}h ${diffMins}m left`;
+  if (diffMins > 0) return `${diffMins}m left`;
   return 'Ending soon';
 };
 
+const getHeroLabel = (campaign: CampaignWithStore): string => {
+  if (campaign.type === 'PERCENTAGE') {
+    const val = Number(campaign.value);
+    if (val >= 40) return 'Mega Deal';
+    if (val >= 20) return 'Hot Offer';
+    return 'Special Deal';
+  }
+  return 'Flat Deal';
+};
+
+// Fallback slides shown when no real campaigns are active
+const FALLBACK_SLIDES = [
+  {
+    id: 'f1',
+    headline: 'Late Night\nHostel Deals',
+    sub: 'Order after 10 PM & save big on your midnight cravings',
+    badge: 'TONIGHT ONLY',
+    pill: 'Up to 40% off',
+    gradient: 'from-orange-950 via-zinc-900 to-zinc-950',
+    accentFrom: '#f97316',
+    accentTo: '#fb923c',
+    icon: '🌙',
+    patternColor: 'rgba(249,115,22,0.07)',
+  },
+  {
+    id: 'f2',
+    headline: 'Free Delivery\nAcross Campus',
+    sub: 'Every store, every hostel — zero delivery charge this week',
+    badge: 'THIS WEEK',
+    pill: 'Free Delivery',
+    gradient: 'from-sky-950 via-zinc-900 to-zinc-950',
+    accentFrom: '#0ea5e9',
+    accentTo: '#38bdf8',
+    icon: '🛵',
+    patternColor: 'rgba(14,165,233,0.07)',
+  },
+  {
+    id: 'f3',
+    headline: 'Midnight\nCombos',
+    sub: 'Curated combo meals from the most loved hostel stores',
+    badge: 'NEW',
+    pill: 'Starting ₹49',
+    gradient: 'from-violet-950 via-zinc-900 to-zinc-950',
+    accentFrom: '#8b5cf6',
+    accentTo: '#a78bfa',
+    icon: '🍜',
+    patternColor: 'rgba(139,92,246,0.07)',
+  },
+];
+
+// Deterministic gradient palette for real campaigns (cycles by index)
+const CAMPAIGN_PALETTES = [
+  { gradient: 'from-orange-950 via-zinc-900 to-zinc-950', accentFrom: '#f97316', accentTo: '#fb923c', patternColor: 'rgba(249,115,22,0.07)', icon: '🔥' },
+  { gradient: 'from-rose-950 via-zinc-900 to-zinc-950', accentFrom: '#e11d48', accentTo: '#fb7185', patternColor: 'rgba(225,29,72,0.07)', icon: '⚡' },
+  { gradient: 'from-emerald-950 via-zinc-900 to-zinc-950', accentFrom: '#10b981', accentTo: '#34d399', patternColor: 'rgba(16,185,129,0.07)', icon: '🎁' },
+  { gradient: 'from-sky-950 via-zinc-900 to-zinc-950', accentFrom: '#0ea5e9', accentTo: '#38bdf8', patternColor: 'rgba(14,165,233,0.07)', icon: '🚀' },
+  { gradient: 'from-amber-950 via-zinc-900 to-zinc-950', accentFrom: '#d97706', accentTo: '#fbbf24', patternColor: 'rgba(217,119,6,0.07)', icon: '🏷️' },
+];
+
+type SlideData = {
+  id: string;
+  headline: string;
+  sub: string;
+  badge: string;
+  pill: string;
+  gradient: string;
+  accentFrom: string;
+  accentTo: string;
+  icon: string;
+  patternColor: string;
+  campaign?: CampaignWithStore;
+};
+
+function buildSlides(campaigns: CampaignWithStore[]): SlideData[] {
+  if (campaigns.length === 0) return FALLBACK_SLIDES;
+
+  return campaigns.map((c, i) => {
+    const palette = CAMPAIGN_PALETTES[i % CAMPAIGN_PALETTES.length];
+    const discount = formatDiscount(c);
+    const label = getHeroLabel(c);
+    const minOrder = Number(c.minOrderValue) > 0 ? ` on orders above ₹${Number(c.minOrderValue).toFixed(0)}` : '';
+
+    return {
+      id: c.id,
+      headline: `${discount}\nat ${c.store.name}`,
+      sub: `Use code ${c.code} to save${minOrder}`,
+      badge: label.toUpperCase(),
+      pill: discount,
+      gradient: palette.gradient,
+      accentFrom: palette.accentFrom,
+      accentTo: palette.accentTo,
+      icon: palette.icon,
+      patternColor: palette.patternColor,
+      campaign: c,
+    };
+  });
+}
+
+// Dot grid background pattern
+function DotGrid({ color }: { color: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 h-full w-full"
+      style={{ opacity: 1 }}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <pattern id="dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+          <circle cx="1.5" cy="1.5" r="1.5" fill={color} />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#dots)" />
+    </svg>
+  );
+}
+
+// Timer countdown chip
+function TimeChip({ endsAt }: { endsAt: string }) {
+  const [label, setLabel] = useState(() => formatExpiry(endsAt));
+
+  useEffect(() => {
+    const id = setInterval(() => setLabel(formatExpiry(endsAt)), 30_000);
+    return () => clearInterval(id);
+  }, [endsAt]);
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2.5 py-1 text-[11px] font-bold text-white/70 backdrop-blur-sm">
+      <Clock className="h-3 w-3 shrink-0" aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
+
 export function CampaignBanner() {
   const [campaigns, setCampaigns] = useState<CampaignWithStore[]>([]);
-  const [current, setCurrent] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [current, setCurrent] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     getActiveCampaigns()
@@ -55,121 +193,223 @@ export function CampaignBanner() {
       .finally(() => setIsLoading(false));
   }, []);
 
+  const slides = buildSlides(campaigns);
+
   const next = useCallback(() => {
-    setCurrent((prev) => (prev + 1) % campaigns.length);
-  }, [campaigns.length]);
+    setCurrent((prev) => (prev + 1) % slides.length);
+  }, [slides.length]);
 
   const prev = useCallback(() => {
-    setCurrent((prev) => (prev - 1 + campaigns.length) % campaigns.length);
-  }, [campaigns.length]);
+    setCurrent((prev) => (prev - 1 + slides.length) % slides.length);
+  }, [slides.length]);
 
-  // Auto-advance every 4 seconds
+  const goTo = useCallback((idx: number) => {
+    setCurrent(idx);
+  }, []);
+
+  // Auto-advance
   useEffect(() => {
-    if (campaigns.length <= 1) return;
-    const timer = setInterval(next, 4000);
-    return () => clearInterval(timer);
-  }, [campaigns.length, next]);
+    if (isPaused || slides.length <= 1) return;
+    timerRef.current = setInterval(next, 5000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isPaused, slides.length, next]);
 
   if (isLoading) {
     return (
-      <div className="h-20 animate-pulse rounded-2xl bg-surface-raised border border-border" />
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl" style={{ height: 'clamp(200px, 38vw, 400px)' }}>
+        <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="h-2 w-24 animate-pulse rounded-full bg-white/10" />
+        </div>
+      </div>
     );
   }
 
-  if (campaigns.length === 0) return null;
-
-  const campaign = campaigns[current];
+  const slide = slides[current];
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-accent/20 bg-gradient-to-r from-accent/10 via-surface to-surface shadow-card">
-      {/* Glow effect */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(249,115,22,0.12),transparent_60%)]" />
+    <div
+      className="group relative overflow-hidden rounded-2xl sm:rounded-3xl"
+      style={{ height: 'clamp(220px, 40vw, 420px)' }}
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      {/* ── Slide body ── */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={slide.id}
+          initial={{ opacity: 0, scale: 1.04 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.97 }}
+          transition={{ duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
+          className={`absolute inset-0 bg-gradient-to-br ${slide.gradient}`}
+        >
+          {/* Dot grid */}
+          <DotGrid color={slide.patternColor} />
 
-      <div className="relative flex items-center gap-4 px-5 py-4">
-        {/* Icon */}
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 border border-accent/20">
-          <Megaphone className="h-5 w-5 text-accent" aria-hidden="true" />
-        </div>
+          {/* Orb glow */}
+          <div
+            className="pointer-events-none absolute -left-16 -top-16 h-72 w-72 rounded-full blur-3xl"
+            style={{ background: `radial-gradient(circle, ${slide.accentFrom}33 0%, transparent 70%)` }}
+          />
+          <div
+            className="pointer-events-none absolute -bottom-20 -right-20 h-80 w-80 rounded-full blur-3xl"
+            style={{ background: `radial-gradient(circle, ${slide.accentTo}22 0%, transparent 70%)` }}
+          />
 
-        {/* Content */}
-        <div className="min-w-0 flex-1">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={campaign.id}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.25 }}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-lg bg-accent px-2.5 py-0.5 text-xs font-black tracking-wider text-accent-contrast">
-                  {formatDiscount(campaign)}
-                </span>
-                <span className="text-xs font-bold text-foreground-secondary">
-                  {campaign.store.name}
-                </span>
-                {campaign.code ? (
-                  <span className="rounded border border-accent/30 bg-accent/10 px-2 py-0.5 font-mono text-[11px] font-bold text-accent">
-                    {campaign.code}
+          {/* Content */}
+          <div className="relative flex h-full flex-col justify-between p-6 sm:p-8 lg:p-10">
+            {/* Top row */}
+            <div className="flex items-start justify-between">
+              <motion.span
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1, duration: 0.4 }}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-black tracking-widest"
+                style={{
+                  background: `linear-gradient(135deg, ${slide.accentFrom}, ${slide.accentTo})`,
+                  color: '#fff',
+                  boxShadow: `0 0 16px ${slide.accentFrom}55`,
+                }}
+              >
+                <Flame className="h-3 w-3" aria-hidden="true" />
+                {slide.badge}
+              </motion.span>
+
+              {slide.campaign ? (
+                <TimeChip endsAt={slide.campaign.endsAt} />
+              ) : null}
+            </div>
+
+            {/* Headline + sub */}
+            <div className="space-y-3">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.15, duration: 0.45 }}
+              >
+                {/* Big emoji icon */}
+                <div className="mb-2 text-3xl sm:text-4xl leading-none select-none" aria-hidden="true">
+                  {slide.icon}
+                </div>
+
+                {/* Main headline */}
+                <h2
+                  className="whitespace-pre-line font-black leading-none tracking-tight text-white"
+                  style={{
+                    fontSize: 'clamp(1.6rem, 5vw, 3.25rem)',
+                    textShadow: '0 2px 20px rgba(0,0,0,0.4)',
+                  }}
+                >
+                  {slide.headline}
+                </h2>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25, duration: 0.4 }}
+                className="flex flex-wrap items-center gap-2"
+              >
+                <p className="text-sm font-medium text-white/60 sm:text-base max-w-xs">
+                  {slide.sub}
+                </p>
+
+                {/* Coupon code chip */}
+                {slide.campaign?.code ? (
+                  <span
+                    className="rounded-lg border border-white/20 bg-white/10 px-3 py-1 font-mono text-xs font-bold text-white backdrop-blur-sm sm:text-sm"
+                    style={{ boxShadow: `0 0 12px ${slide.accentFrom}33` }}
+                  >
+                    {slide.campaign.code}
                   </span>
                 ) : null}
-              </div>
+              </motion.div>
+            </div>
 
-              <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-foreground-muted font-medium">
-                {Number(campaign.minOrderValue) > 0 ? (
-                  <span>Min order Rs. {Number(campaign.minOrderValue).toFixed(0)}</span>
-                ) : null}
-                <span className="flex items-center gap-1">
-                  <BadgePercent className="h-3 w-3 text-accent/60" aria-hidden="true" />
-                  {formatExpiry(campaign.endsAt)}
+            {/* Bottom row: pill + dots */}
+            <div className="flex items-end justify-between">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.3, duration: 0.4, type: 'spring', stiffness: 300 }}
+              >
+                <span
+                  className="rounded-xl px-4 py-2 text-sm font-black text-white sm:text-base"
+                  style={{
+                    background: `linear-gradient(135deg, ${slide.accentFrom}cc, ${slide.accentTo}cc)`,
+                    backdropFilter: 'blur(8px)',
+                    border: `1px solid ${slide.accentFrom}44`,
+                    boxShadow: `0 4px 20px ${slide.accentFrom}44`,
+                  }}
+                >
+                  {slide.pill}
                 </span>
-              </div>
-            </motion.div>
-          </AnimatePresence>
-        </div>
+              </motion.div>
 
-        {/* Navigation (only show if multiple campaigns) */}
-        {campaigns.length > 1 ? (
-          <div className="flex shrink-0 items-center gap-1.5">
-            <button
-              aria-label="Previous campaign"
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-surface-raised text-foreground-secondary transition-all hover:border-accent/30 hover:text-accent active:scale-90"
-              onClick={prev}
-              type="button"
-            >
-              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-            </button>
-            <span className="text-[10px] font-bold text-foreground-muted">
-              {current + 1}/{campaigns.length}
-            </span>
-            <button
-              aria-label="Next campaign"
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-surface-raised text-foreground-secondary transition-all hover:border-accent/30 hover:text-accent active:scale-90"
-              onClick={next}
-              type="button"
-            >
-              <ChevronRight className="h-4 w-4" aria-hidden="true" />
-            </button>
+              {/* Dot indicators */}
+              {slides.length > 1 ? (
+                <div className="flex items-center gap-1.5">
+                  {slides.map((_, idx) => (
+                    <button
+                      key={idx}
+                      aria-label={`Go to slide ${idx + 1}`}
+                      type="button"
+                      onClick={() => goTo(idx)}
+                      className="transition-all duration-300 rounded-full"
+                      style={{
+                        width: idx === current ? 24 : 6,
+                        height: 6,
+                        background:
+                          idx === current
+                            ? `linear-gradient(90deg, ${slide.accentFrom}, ${slide.accentTo})`
+                            : 'rgba(255,255,255,0.25)',
+                        boxShadow: idx === current ? `0 0 8px ${slide.accentFrom}` : 'none',
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
-        ) : null}
-      </div>
+        </motion.div>
+      </AnimatePresence>
 
-      {/* Progress dots */}
-      {campaigns.length > 1 ? (
-        <div className="flex justify-center gap-1.5 pb-2.5">
-          {campaigns.map((_, index) => (
-            <button
-              aria-label={`Go to campaign ${index + 1}`}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                index === current
-                  ? 'w-4 bg-accent'
-                  : 'w-1.5 bg-foreground-muted/30 hover:bg-foreground-muted/60'
-              }`}
-              key={index}
-              onClick={() => setCurrent(index)}
-              type="button"
-            />
-          ))}
+      {/* ── Prev / Next arrows (visible on hover) ── */}
+      {slides.length > 1 ? (
+        <>
+          <button
+            aria-label="Previous slide"
+            type="button"
+            onClick={prev}
+            className="absolute left-3 top-1/2 z-10 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white opacity-0 backdrop-blur-sm transition-all duration-200 hover:border-white/30 hover:bg-black/60 active:scale-90 group-hover:opacity-100"
+          >
+            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+          </button>
+          <button
+            aria-label="Next slide"
+            type="button"
+            onClick={next}
+            className="absolute right-3 top-1/2 z-10 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white opacity-0 backdrop-blur-sm transition-all duration-200 hover:border-white/30 hover:bg-black/60 active:scale-90 group-hover:opacity-100"
+          >
+            <ChevronRight className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </>
+      ) : null}
+
+      {/* ── Auto-play progress bar ── */}
+      {slides.length > 1 && !isPaused ? (
+        <div className="absolute bottom-0 left-0 right-0 h-[2px] overflow-hidden">
+          <motion.div
+            key={`${slide.id}-progress`}
+            initial={{ scaleX: 0, originX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ duration: 5, ease: 'linear' }}
+            className="h-full"
+            style={{ background: `linear-gradient(90deg, ${slide.accentFrom}, ${slide.accentTo})` }}
+          />
         </div>
       ) : null}
     </div>

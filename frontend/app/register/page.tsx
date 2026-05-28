@@ -63,13 +63,7 @@ export default function RegisterPage() {
         className={authShellClass}
       >
         <AuthHero
-          eyebrow="Create student account"
-          points={[
-            'Explore local hostel canteens',
-            'Live staggered order tracking',
-            'Unlock merchant tools instantly',
-          ]}
-          subtitle="Join with a single campus account to order delicious meals or configure your own canteen store block."
+          subtitle="Join with a campus account to order from hostel stores or open your own."
           title="Start ordering with Munchies"
         />
 

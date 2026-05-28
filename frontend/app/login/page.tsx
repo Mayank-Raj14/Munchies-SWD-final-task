@@ -67,9 +67,7 @@ export default function LoginPage() {
         className={authShellClass}
       >
         <AuthHero
-          eyebrow="Campus Ordering SaaS"
-          points={['Liquid-smooth hostel ordering', 'Stat dashboard analytics', 'Staggered real-time order lists']}
-          subtitle="Sign in to the canteens marketplace, track order updates, and explore local campus kitchens."
+          subtitle="Order from student-run stores on campus. Fast, easy, and delivered to your hostel."
           title="Welcome back to Munchies"
         />
 
@@ -86,7 +84,7 @@ export default function LoginPage() {
           </h1>
 
           <p className="relative mt-1.5 text-xs font-medium text-slate-400">
-            Access your orders dashboard and merchant tools.
+            Good to see you again. Your stores are waiting.
           </p>
 
           <form className="relative mt-7 space-y-4" onSubmit={handleSubmit}>
@@ -118,6 +116,14 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 required
               />
+              <div className="mt-1.5 text-right">
+                <Link
+                  href="/forgot-password"
+                  className="text-[11px] font-semibold text-slate-500 hover:text-accent transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
             </label>
 
             <motion.button

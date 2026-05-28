@@ -9,6 +9,9 @@ export const API_ROUTES = {
     login: '/auth/login',
     me: '/auth/me',
     emailPreferences: '/auth/me/email-preferences',
+    forgotPassword: '/auth/forgot-password',
+    verifyResetCode: '/auth/verify-reset-code',
+    resetPassword: '/auth/reset-password',
   },
   hostels: '/hostels',
   stores: {
@@ -78,4 +81,3 @@ export const API_ROUTES = {
     },
   },
 } as const;
-

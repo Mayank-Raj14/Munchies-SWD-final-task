@@ -46,7 +46,7 @@ export function BrandMark({
           <div className="flex items-center gap-1.5">
             <p className="text-base font-bold tracking-tight text-foreground">{label}</p>
             <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent border border-accent/20">
-              SaaS
+              NEW
             </span>
           </div>
           <p className="text-[10px] font-medium text-foreground-muted uppercase tracking-wider">

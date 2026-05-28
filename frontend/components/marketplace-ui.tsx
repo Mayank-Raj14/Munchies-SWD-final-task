@@ -279,52 +279,98 @@ export const authShellClass =
 export const authHeroClass =
   'relative hidden overflow-hidden border-r border-white/5 bg-[linear-gradient(155deg,#101114_0%,#0a0b0e_55%,#040506_100%)] p-12 text-foreground lg:flex lg:flex-col lg:justify-between';
 
+const FOOD_ITEMS = [
+  { emoji: '🍕', label: 'Pizza', delay: 0 },
+  { emoji: '🍜', label: 'Noodles', delay: 0.08 },
+  { emoji: '🥪', label: 'Sandwich', delay: 0.16 },
+  { emoji: '🧆', label: 'Snacks', delay: 0.24 },
+  { emoji: '🥤', label: 'Drinks', delay: 0.32 },
+  { emoji: '🍱', label: 'Combos', delay: 0.4 },
+];
+
+const VIBES = [
+  { text: 'Midnight cravings sorted.', color: '#f97316' },
+  { text: 'Your hostel. Your menu.', color: '#fb923c' },
+  { text: 'Hot food, zero hassle.', color: '#f97316' },
+];
+
 export function AuthHero({
-  eyebrow,
-  points,
-  subtitle,
   title,
+  subtitle,
 }: {
-  eyebrow: string;
-  points: string[];
+  eyebrow?: string;
+  points?: string[];
   subtitle: string;
   title: string;
 }) {
   return (
     <div className={authHeroClass}>
-      {/* Layered ambient glows */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_75%_15%,rgba(249,115,22,0.16),transparent_45%),radial-gradient(circle_at_20%_80%,rgba(251,191,36,0.05),transparent_40%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-grid-soft opacity-10" />
+      {/* Warm ambient glow */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(249,115,22,0.18),transparent_50%),radial-gradient(ellipse_at_bottom_left,rgba(251,191,36,0.07),transparent_50%)]" />
 
-      {/* Subtle animated accent line */}
-      <div className="pointer-events-none absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
+      {/* Top accent line */}
+      <div className="pointer-events-none absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
 
       <BrandMark className="relative" />
 
-      <div className="relative max-w-md">
-        <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-accent">
-          {eyebrow}
-        </p>
-        <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-white leading-tight">
+      {/* Hero text */}
+      <div className="relative">
+        <motion.p
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05, duration: 0.4 }}
+          className="text-[10px] font-bold uppercase tracking-[0.3em] text-accent mb-4"
+        >
+          12 Hostels · 1 App
+        </motion.p>
+        <motion.h1
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: 0.45 }}
+          className="text-4xl font-black tracking-tight text-white leading-[1.1]"
+        >
           {title}
-        </h1>
-        <p className="mt-3 text-sm leading-relaxed text-slate-400 font-medium">
+        </motion.h1>
+        <motion.p
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.18, duration: 0.4 }}
+          className="mt-3 text-sm leading-relaxed text-slate-400 font-medium max-w-xs"
+        >
           {subtitle}
-        </p>
+        </motion.p>
       </div>
 
-      <div className="relative grid gap-2.5 grid-cols-1">
-        {points.map((point, i) => (
+      {/* Food emoji grid */}
+      <div className="relative grid grid-cols-3 gap-2.5">
+        {FOOD_ITEMS.map(({ emoji, label, delay }) => (
           <motion.div
-            key={point}
+            key={label}
+            initial={{ opacity: 0, scale: 0.8, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ delay: 0.25 + delay, type: 'spring', stiffness: 320, damping: 24 }}
+            whileHover={{ scale: 1.06, y: -2 }}
+            className="flex flex-col items-center gap-1.5 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-3 py-3.5 backdrop-blur-sm cursor-default"
+          >
+            <span className="text-2xl leading-none select-none">{emoji}</span>
+            <span className="text-[10px] font-semibold text-slate-400 tracking-wide">{label}</span>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Vibe pills */}
+      <div className="relative flex flex-wrap gap-2">
+        {VIBES.map(({ text, color }, i) => (
+          <motion.span
+            key={text}
             initial={{ opacity: 0, x: -8 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 + i * 0.07, type: 'spring', stiffness: 300, damping: 28 }}
-            className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.025] px-4 py-3 text-xs font-semibold text-slate-300 backdrop-blur-sm shadow-sm"
+            transition={{ delay: 0.6 + i * 0.08, duration: 0.35 }}
+            className="rounded-full border px-3 py-1 text-[11px] font-bold"
+            style={{ borderColor: `${color}30`, color, background: `${color}10` }}
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-accent shrink-0" aria-hidden="true" />
-            {point}
-          </motion.div>
+            {text}
+          </motion.span>
         ))}
       </div>
     </div>

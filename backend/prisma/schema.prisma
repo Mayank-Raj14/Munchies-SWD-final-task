@@ -85,6 +85,8 @@ model User {
   storeBlocksIssued         StoreUserBlock[]               @relation("StoreBlocksIssuedByUser")
   globalBlocksIssued        GlobalUserBlock[]              @relation("GlobalBlocksIssuedByUser")
 
+  passwordResetTokens       PasswordResetToken[]
+
   @@index([email])
 }
 
@@ -391,4 +393,17 @@ model StoreUserBlock {
 
   @@unique([userId, storeId])
   @@index([storeId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

@@ -16,11 +16,13 @@ import {
   adminStoreOwnershipRequestRouter,
   storeOwnershipRequestRouter,
 } from './store-ownership-request.routes.js';
+import { passwordResetRouter } from './password-reset.routes.js';
 export const apiRouter = Router();
 
 apiRouter.use('/analytics', analyticsRouter);
 
 apiRouter.use('/auth', authRouter);
+apiRouter.use('/auth', passwordResetRouter);
 apiRouter.use('/bookings', bookingRouter);
 apiRouter.use('/campaigns', campaignRouter);
 apiRouter.use('/carts', cartRouter);
@@ -36,9 +38,3 @@ apiRouter.use('/admin/store-ownership-requests', adminStoreOwnershipRequestRoute
 import { adminRouter } from './admin.routes.js';
 apiRouter.use('/admin', adminRouter);
 apiRouter.use('/admin/moderation', adminModerationRouter);
-
-
-
-
-
-

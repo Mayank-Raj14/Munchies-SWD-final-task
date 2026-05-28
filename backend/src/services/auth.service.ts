@@ -46,21 +46,26 @@ const userSelect = {
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
 const getPlatformAdminEmail = () =>
-  env.ADMIN_EMAIL?.trim().toLowerCase() ?? env.PLATFORM_ADMIN_EMAIL?.trim().toLowerCase() ?? null;
+  env.ADMIN_EMAIL?.trim().toLowerCase() ??
+  env.PLATFORM_ADMIN_EMAIL?.trim().toLowerCase() ??
+  null;
 
-const syncPlatformAdminRole = async (userId: string, email: string, role: Role) => {
+const syncPlatformAdminRole = async (
+  userId: string,
+  email: string,
+  role: Role
+): Promise<Role> => {
   const platformAdminEmail = getPlatformAdminEmail();
+
   if (!platformAdminEmail) {
     return role;
   }
 
   const normalizedUserEmail = normalizeEmail(email);
   const isPlatformAdmin = normalizedUserEmail === platformAdminEmail;
-  
-  // Only update if user is the platform admin AND doesn't already have ADMIN role
+
+  // If user is not platform admin OR already admin, no update needed
   if (!isPlatformAdmin || role === Role.ADMIN) {
-  const isPlatformAdmin = email.trim().toLowerCase() === platformAdminEmail;
-  if (role === Role.ADMIN) {
     return role;
   }
 
@@ -75,8 +80,11 @@ const syncPlatformAdminRole = async (userId: string, email: string, role: Role) 
 
 export const bootstrapPlatformAdminRole = async () => {
   const platformAdminEmail = getPlatformAdminEmail();
+
   if (!platformAdminEmail) {
-    console.warn('ADMIN_EMAIL / PLATFORM_ADMIN_EMAIL is not set. Platform admin auto-promotion is disabled.');
+    console.warn(
+      'ADMIN_EMAIL / PLATFORM_ADMIN_EMAIL is not set. Platform admin auto-promotion is disabled.'
+    );
     return;
   }
 
@@ -89,12 +97,15 @@ export const bootstrapPlatformAdminRole = async () => {
   });
 
   if (result.count > 0) {
-    console.log(`Promoted ${result.count} platform admin account(s) for ${platformAdminEmail}.`);
+    console.log(
+      `Promoted ${result.count} platform admin account(s) for ${platformAdminEmail}.`
+    );
   }
 };
 
 export const registerUser = async (input: RegisterInput) => {
   const normalizedEmail = normalizeEmail(input.email);
+
   const existingUser = await prisma.user.findUnique({
     where: { email: normalizedEmail },
     select: { id: true },
@@ -113,17 +124,30 @@ export const registerUser = async (input: RegisterInput) => {
     select: userSelect,
   });
 
-  user.role = await syncPlatformAdminRole(user.id, user.email, user.role);
+  user.role = await syncPlatformAdminRole(
+    user.id,
+    user.email,
+    user.role
+  );
 
-  const token = signAuthToken({ userId: user.id, role: user.role });
+  const token = signAuthToken({
+    userId: user.id,
+    role: user.role,
+  });
 
   return { user, token };
 };
 
 export const loginUser = async (input: LoginInput) => {
   const normalizedEmail = normalizeEmail(input.email);
+
   const user = await prisma.user.findFirst({
-    where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+    where: {
+      email: {
+        equals: normalizedEmail,
+        mode: 'insensitive',
+      },
+    },
     include: {
       globalBlock: {
         select: {
@@ -147,7 +171,10 @@ export const loginUser = async (input: LoginInput) => {
     select: userSelect,
   });
 
-  const token = signAuthToken({ userId: refreshedUser.id, role: refreshedUser.role });
+  const token = signAuthToken({
+    userId: refreshedUser.id,
+    role: refreshedUser.role,
+  });
 
   return {
     user: {
@@ -156,7 +183,8 @@ export const loginUser = async (input: LoginInput) => {
       email: refreshedUser.email,
       role: refreshedUser.role,
       warningCount: refreshedUser.warningCount,
-      emailNotificationsEnabled: refreshedUser.emailNotificationsEnabled,
+      emailNotificationsEnabled:
+        refreshedUser.emailNotificationsEnabled,
       preferences: refreshedUser.preferences,
       globalBlock: refreshedUser.globalBlock,
       createdAt: refreshedUser.createdAt,
@@ -178,15 +206,25 @@ export const getUserById = async (userId: string) => {
     throw new AppError('User not found', 404);
   }
 
-  user.role = await syncPlatformAdminRole(user.id, user.email, user.role);
+  user.role = await syncPlatformAdminRole(
+    user.id,
+    user.email,
+    user.role
+  );
 
   return user;
 };
 
-export const updateEmailPreferences = async (userId: string, input: EmailPreferenceInput) => {
+export const updateEmailPreferences = async (
+  userId: string,
+  input: EmailPreferenceInput
+) => {
   await prisma.user.update({
     where: { id: userId },
-    data: { emailNotificationsEnabled: input.emailNotificationsEnabled },
+    data: {
+      emailNotificationsEnabled:
+        input.emailNotificationsEnabled,
+    },
   });
 
   if (
@@ -203,14 +241,23 @@ export const updateEmailPreferences = async (userId: string, input: EmailPrefere
         newStores: input.newStores ?? true,
       },
       update: {
-        ...(input.bookings !== undefined ? { bookings: input.bookings } : {}),
-        ...(input.promotions !== undefined ? { promotions: input.promotions } : {}),
-        ...(input.newStores !== undefined ? { newStores: input.newStores } : {}),
+        ...(input.bookings !== undefined
+          ? { bookings: input.bookings }
+          : {}),
+        ...(input.promotions !== undefined
+          ? { promotions: input.promotions }
+          : {}),
+        ...(input.newStores !== undefined
+          ? { newStores: input.newStores }
+          : {}),
       },
     });
   }
 
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: userSelect });
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: userSelect,
+  });
 
   return user;
 };

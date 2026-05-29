@@ -1,232 +1,537 @@
 # Munchies
 
-Munchies is a hostel marketplace for student-run food stores. Students can browse approved stores, add items to per-store carts, place bookings, and request cancellations. Store owners manage stores, inventory, and order status. Admins review ownership requests and govern marketplace access.
+Munchies is a full-stack hostel marketplace platform built for student-run food stores inside a campus ecosystem. Students can browse stores, order food, apply coupons, manage bookings, and track analytics, while store owners manage inventory, campaigns, and order workflows. Admins govern the platform through moderation and approval systems.
 
-## Tech Stack
-
-- Frontend: Next.js 15 App Router, React, TypeScript, Tailwind CSS
-- Backend: Express, TypeScript, Prisma ORM
-- Database: PostgreSQL
-- Auth: JWT bearer tokens, bcrypt password hashing
-- Tooling: npm workspaces, Prisma migrations, Prettier
+---
 
 ## Features
 
-- JWT authentication with role-based routing and API authorization
-- Roles: `USER`, `STORE_OWNER`, `ADMIN`
-- Store ownership request and approval flow
-- Store and inventory management with image uploads
-- Public marketplace and store detail pages
-- Per-store cart grouping
-- Checkout to bookings with stock-safe inventory updates
-- Item-targeted coupon support in booking and cart flows
-- Order status management and cancellation review
-- Admin approval and governance flows
-- Email notifications and preference categories (bookings, promotions, new stores)
-- Store-owner and user analytics dashboards
-- Cache layer for high-read endpoints with invalidation hooks
-- Background automation for order expiry and campaign activation/deactivation
-- Prisma-backed persistence with migration history
+### Authentication & RBAC
 
-## SWD Round 3 Coverage
+* JWT authentication
+* Role-based access control
+* Roles:
 
-- Phase 1:
-- Authentication and RBAC for `USER`, `STORE_OWNER`, `ADMIN`
-- Store ownership request + admin approval/rejection
-- Public home/store listing and cart-first booking flow
-- Inventory CRUD with image upload and stock tracking
-- Phase 2:
-- Cancellation request and store-owner review workflow
-- Nodemailer notifications for cancellation/governance events
-- 24-hour uncollected order expiry handling with warning assignment
-- Auto-block on reaching 3 warnings
-- Admin global/store-specific block and unblock controls
-- Phase 3:
-- Coupon campaign system with unique code, discount type, schedule window, min order, global/per-user usage limits
-- Coupon application at checkout with item-targeted campaign support
-- User-managed email subscription preferences: booking, promotion, new-store categories
-- Phase 4:
-- Store-owner analytics: revenue metrics, booking stats, stock visibility, item performance
-- User analytics: spending, booking count, favorite store/item, monthly spending breakdown
-- Cache integration on high-read data paths with explicit invalidation after mutating operations
-- Background jobs/utilities for campaign schedule activation/deactivation and order expiry governance
+  * `USER`
+  * `STORE_OWNER`
+  * `ADMIN`
+* Protected routes and APIs
+* Persistent login sessions
+
+---
+
+### Store System
+
+* Store ownership request workflow
+* Admin approval/rejection system
+* Multiple stores per owner support
+* Store activation and governance controls
+* Store analytics dashboard
+
+---
+
+### Marketplace & Ordering
+
+* Public marketplace browsing
+* Store detail pages
+* Inventory management
+* Per-store cart grouping
+* Checkout workflow
+* Booking creation and tracking
+* Order status management
+* Booking cancellation requests
+
+---
+
+### Coupon & Campaign System
+
+* Percentage and flat discounts
+* Item-targeted campaigns
+* Campaign schedule activation/deactivation
+* Global usage limits
+* Per-user usage limits
+* Minimum order support
+
+---
+
+### Analytics
+
+#### User Analytics
+
+* Total spending
+* Booking count
+* Favorite store
+* Favorite item
+* Monthly spending breakdown
+
+#### Store Owner Analytics
+
+* Revenue metrics
+* Booking statistics
+* Low stock alerts
+* Best/least selling items
+
+---
+
+### Email Notifications
+
+* Booking notifications
+* Promotion notifications
+* Governance notifications
+* Email preference categories
+* Gmail SMTP integration
+
+---
+
+### Infrastructure
+
+* PostgreSQL persistence
+* Prisma ORM
+* Background schedulers
+* Cache invalidation system
+* High-read endpoint caching
+* Dockerized infrastructure
+* Automatic hostel bootstrap system
+
+---
+
+## Tech Stack
+
+### Frontend
+
+* Next.js 15
+* React
+* TypeScript
+* Tailwind CSS
+
+### Backend
+
+* Express.js
+* TypeScript
+* Prisma ORM
+
+### Database
+
+* PostgreSQL
+
+### Authentication
+
+* JWT
+* bcrypt
+
+### Tooling
+
+* Docker
+* Docker Compose
+* npm workspaces
+* Prisma migrations
+
+---
 
 ## Project Structure
 
 ```text
 munchies/
-  backend/              Express API, Prisma schema, migrations, services
-  frontend/             Next.js app, UI components, API services, auth context
-  scripts/              Workspace development helpers
-  shorcut script/       Windows batch shortcuts
+│
+├── backend/              Express API + Prisma backend
+├── frontend/             Next.js frontend
+├── scripts/              Helper scripts
+├── shorcut script/       Windows batch scripts
+│
+├── docker-compose.yml
+├── package.json
+└── README.md
 ```
 
-## Environment
+---
 
-Create `backend/.env` from `backend/env.example`:
+## Environment Setup
+
+### Backend Environment
+
+Create:
+
+```bash
+backend/.env
+```
+
+Example:
 
 ```env
 NODE_ENV="development"
 PORT=5000
+
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/munchies?schema=public"
+
 FRONTEND_ORIGIN="http://localhost:3000"
-JWT_SECRET="local-development-jwt-secret-min-32-chars"
+
+JWT_SECRET="your-super-secret-jwt-key-minimum-32-characters"
 JWT_EXPIRES_IN="7d"
-EMAIL_USER="your_gmail_address@gmail.com"
+
+EMAIL_USER="your_email@gmail.com"
 EMAIL_PASS="your_gmail_app_password"
-EMAIL_FROM="Munchies <your_gmail_address@gmail.com>"
-ADMIN_EMAIL="mayankraj300u@gmail.com"
+EMAIL_FROM="Munchies <your_email@gmail.com>"
+
+ADMIN_EMAIL="your_admin_email@gmail.com"
 ```
 
-Optional frontend override in `frontend/.env.local`:
+---
+
+### Frontend Environment
+
+Create:
+
+```bash
+frontend/.env.local
+```
+
+Example:
 
 ```env
 NEXT_PUBLIC_API_BASE_URL="http://localhost:5000/api"
 ```
 
-`JWT_SECRET` must be at least 32 characters.
+---
 
-## Local Development
+## Local Development Setup
 
-Install dependencies:
+### 1. Clone Repository
+
+```bash
+git clone <your-repository-url>
+cd munchies
+```
+
+---
+
+### 2. Install Dependencies
 
 ```bash
 npm install
 ```
 
-Start infrastructure:
+---
+
+### 3. Start PostgreSQL & Infrastructure
 
 ```bash
 docker compose up -d
 ```
 
-Prepare Prisma:
+---
+
+### 4. Generate Prisma Client
 
 ```bash
 npm run prisma:generate --workspace backend
+```
+
+---
+
+### 5. Apply Prisma Migrations
+
+```bash
 npm run prisma:migrate:deploy --workspace backend
 ```
 
-If Prisma client generation fails with a Windows file-lock error, stop local Node dev processes and retry:
+---
 
-```bash
-taskkill /F /IM node.exe
-npm run prisma:generate --workspace backend
-```
-
-Start backend:
+### 6. Start Backend
 
 ```bash
 npm run dev --workspace backend
 ```
 
-Start frontend (new terminal):
+---
+
+### 7. Start Frontend
+
+Open another terminal:
 
 ```bash
 npm run dev --workspace frontend
 ```
 
-The default URLs are:
+---
 
-- Frontend: `http://localhost:3000`
-- API: `http://localhost:5000/api`
-- Health check: `http://localhost:5000/api/health`
-- Prisma Studio: `http://localhost:5555`
+## Default URLs
 
-Windows shortcuts are available in `shorcut script/`:
+| Service       | URL                                |
+| ------------- | ---------------------------------- |
+| Frontend      | `http://localhost:3000`            |
+| Backend API   | `http://localhost:5000/api`        |
+| Health Check  | `http://localhost:5000/api/health` |
+| Prisma Studio | `http://localhost:5555`            |
 
-- `start.bat` installs dependencies if needed, generates Prisma Client, applies migrations, starts both dev servers, and opens the frontend.
-- `open prisma.bat` generates Prisma Client and opens Prisma Studio.
-- `task kill stuff.bat` frees the frontend, backend, and Prisma Studio ports.
+---
 
-## Scripts
+## Docker Commands
 
-```bash
-npm run dev
-npm run build
-npm run lint
-npm run format
-npm run format:check
-npm run typecheck --workspace frontend
-npm run typecheck --workspace backend
-npm run prisma:generate --workspace backend
-npm run prisma:migrate --workspace backend
-npm run prisma:migrate:deploy --workspace backend
-npm run prisma:studio --workspace backend
-npm run verify:coupon --workspace backend
-npm run verify:analytics --workspace backend
-```
-
-## Verification Utilities
-
-- Coupon concurrency verifier: validates concurrent coupon redemption behavior.
-- Analytics edge-case verifier: checks analytics aggregation behavior on sparse/edge datasets.
-
-Run from workspace root:
+### Start Containers
 
 ```bash
-npm run verify:coupon --workspace backend
-npm run verify:analytics --workspace backend
+docker compose up -d
 ```
 
-Run directly from `backend/`:
+---
+
+### Stop Containers
 
 ```bash
-npm run verify:coupon
-npm run verify:analytics
+docker compose down
 ```
+
+---
+
+### Reset Database Completely
+
+```bash
+docker compose down -v
+```
+
+Note:
+
+* This removes PostgreSQL data completely.
+* Default hostels are automatically recreated on startup.
+
+---
+
+### View Backend Logs
+
+```bash
+docker compose logs backend
+```
+
+---
+
+### Restart Backend
+
+```bash
+docker compose restart backend
+```
+
+---
 
 ## Prisma Workflow
 
-Use migrations for schema changes:
+### Generate Prisma Client
 
 ```bash
-npm run prisma:migrate --workspace backend
 npm run prisma:generate --workspace backend
 ```
 
-For an existing database in local development or deployment:
+---
+
+### Create Migration
+
+```bash
+npm run prisma:migrate --workspace backend
+```
+
+---
+
+### Deploy Existing Migrations
 
 ```bash
 npm run prisma:migrate:deploy --workspace backend
 ```
 
-Open Prisma Studio:
+---
+
+### Open Prisma Studio
 
 ```bash
 npm run prisma:studio --workspace backend
 ```
 
-## First Run Data
+---
 
-After the database is migrated:
+## Automatic Hostel Bootstrap
 
-1. Register a normal user from the app.
-2. Register/login with `mayankraj300u@gmail.com` (configured in `ADMIN_EMAIL`) to access admin features. The backend auto-promotes this account to `ADMIN`.
-3. The 12 default hostels are auto-seeded on backend startup.
-4. Submit a store ownership request as a user.
-5. Approve it as an admin.
-6. Add inventory as the store owner and place orders as a customer.
+The backend automatically initializes the 12 predefined hostels during startup if they do not already exist in the database.
 
-No manual SQL/database edits are required for first run.
+This ensures:
+
+* fresh Docker resets still work
+* no manual SQL setup is required
+* hostel data always exists
+
+---
+
+## First Run Workflow
+
+1. Register a normal user account.
+2. Login using the email configured in:
+
+```env
+ADMIN_EMAIL
+```
+
+3. That account automatically receives `ADMIN` role access.
+4. Submit a store ownership request as a normal user.
+5. Approve the request from the admin dashboard.
+6. Add inventory as the store owner.
+7. Place bookings as a customer.
+
+---
 
 ## API Overview
 
-- Auth: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`
-- Hostels: `GET /api/hostels`
-- Stores: `GET /api/stores`, `GET /api/stores/:id`, owner CRUD under `/api/stores`
-- Items: `/api/stores/:storeId/items`
-- Carts: `/api/carts`
-- Bookings: `/api/bookings`
-- Ownership: `/api/store-ownership-requests`, `/api/admin/store-ownership-requests`
-- Governance: admin and store-owner moderation routes
+### Authentication
+
+```http
+POST /api/auth/register
+POST /api/auth/login
+GET  /api/auth/me
+```
+
+---
+
+### Hostels
+
+```http
+GET /api/hostels
+```
+
+---
+
+### Stores
+
+```http
+GET    /api/stores
+GET    /api/stores/:id
+POST   /api/stores
+PATCH  /api/stores/:id
+DELETE /api/stores/:id
+```
+
+---
+
+### Inventory
+
+```http
+/api/stores/:storeId/items
+```
+
+---
+
+### Cart
+
+```http
+/api/carts
+```
+
+---
+
+### Bookings
+
+```http
+/api/bookings
+```
+
+---
+
+### Ownership Requests
+
+```http
+/api/store-ownership-requests
+/api/admin/store-ownership-requests
+```
+
+---
 
 ## Verification
 
+### Frontend Typecheck
+
 ```bash
 npm run typecheck --workspace frontend
+```
+
+---
+
+### Backend Typecheck
+
+```bash
 npm run typecheck --workspace backend
+```
+
+---
+
+### Production Build
+
+```bash
 npm run build
 ```
 
-Run `npm run format:check` before opening a PR if you need a formatting gate.
+---
+
+## Deployment
+
+### Recommended Stack
+
+| Service       | Platform         |
+| ------------- | ---------------- |
+| Frontend      | Vercel           |
+| Backend       | Railway / Render |
+| Database      | PostgreSQL       |
+| Media Storage | Cloudinary       |
+
+---
+
+### Backend Deployment
+
+Required environment variables:
+
+```env
+DATABASE_URL=
+JWT_SECRET=
+FRONTEND_ORIGIN=
+EMAIL_USER=
+EMAIL_PASS=
+ADMIN_EMAIL=
+```
+
+Run migrations after deployment:
+
+```bash
+npx prisma migrate deploy
+```
+
+---
+
+### Frontend Deployment
+
+Required environment variable:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=
+```
+
+---
+
+## Production Notes
+
+* Configure secure JWT secrets
+* Configure proper CORS origin
+* Use persistent cloud storage for uploads
+* Never commit `.env`
+* Use production PostgreSQL backups
+* Run migrations before production startup
+
+---
+
+## Future Improvements
+
+* Payment gateway integration
+* WebSocket real-time order updates
+* Mobile/PWA support
+* Recommendation engine
+* Search optimization
+* Push notifications
+
+---
+
+## License
+
+This project is for educational and academic use.

@@ -13,7 +13,6 @@ const startServer = async () => {
     console.error('Failed to connect Prisma client', err);
     throw err;
   }
-
   await bootstrapPlatformAdminRole();
 
   // Ensure default hostels exist even if background-job startup changes.

@@ -1,12 +1,14 @@
 import type { Response } from 'express';
 
 import type { AuthenticatedRequest } from '../middleware/auth.middleware.js';
+import { getOptionalUser } from '../middleware/auth.middleware.js';
 import {
   createStoreItem,
   deleteStoreItem,
   listStoreItems,
   updateStoreItem,
 } from '../services/item.service.js';
+import { getCached } from '../utils/cache.js';
 
 const imageUrlFromRequest = (req: AuthenticatedRequest) => {
   const file = req.file;
@@ -15,7 +17,12 @@ const imageUrlFromRequest = (req: AuthenticatedRequest) => {
 };
 
 export const getItemsForStore = async (req: AuthenticatedRequest, res: Response) => {
-  const items = await listStoreItems(req.params.storeId ?? '');
+  const currentUser = await getOptionalUser(req);
+  const storeId = req.params.storeId ?? '';
+  const cacheKey = `storeItems:${storeId}:${currentUser?.id ?? 'public'}`;
+  const items = await getCached(cacheKey, 30_000, async () =>
+    listStoreItems(storeId, currentUser),
+  );
 
   res.status(200).json({ items });
 };

@@ -22,7 +22,9 @@ type StoreInput = {
   email?: string | null;
 };
 
-type UpdateStoreInput = Partial<StoreInput>;
+type UpdateStoreInput = Partial<StoreInput> & {
+  isActive?: boolean;
+};
 
 const storeInclude = {
   // Explicitly select Store fields so we never query stale/removed columns
@@ -33,6 +35,8 @@ const storeInclude = {
   roomNumber: true,
   email: true,
   ownerId: true,
+  isActive: true,
+  isDeleted: true,
   createdAt: true,
   updatedAt: true,
   hostel: {
@@ -79,7 +83,12 @@ export const listStores = async ({ page, limit, search, hostelId }: ListStoresIn
   const key = cacheKeys.stores({ page, limit, search: search ?? '', hostelId: hostelId ?? '' });
 
   return getCached(key, 30_000, async () => {
-    const where = buildStoreListWhere({ search, hostelId });
+    const baseWhere = buildStoreListWhere({ search, hostelId });
+    const where = {
+      ...baseWhere,
+      isActive: true,
+      isDeleted: false,
+    };
     const { page: safePage, limit: safeLimit, skip, take } = getPagination({ page, limit });
     const [stores, total] = await prisma.$transaction([
       prisma.store.findMany({
@@ -99,7 +108,7 @@ export const listStores = async ({ page, limit, search, hostelId }: ListStoresIn
   });
 };
 
-export const getStoreById = async (storeId: string) => {
+export const getStoreById = async (storeId: string, currentUser?: { id: string; role: Role } | null) => {
   const store = await getCached(cacheKeys.store(storeId), 30_000, () =>
     prisma.store.findUnique({
       where: { id: storeId },
@@ -111,6 +120,14 @@ export const getStoreById = async (storeId: string) => {
     throw new AppError('Store not found', 404);
   }
 
+  if (!store.isActive || store.isDeleted) {
+    const isOwner = currentUser && store.ownerId === currentUser.id;
+    const isAdmin = currentUser && currentUser.role === Role.ADMIN;
+    if (!isOwner && !isAdmin) {
+      throw new AppError('Store not found', 404);
+    }
+  }
+
   return store;
 };
 
@@ -119,7 +136,7 @@ export const listStoresByOwner = async (ownerId: string) => {
 
   return getCached(cacheKeys.ownerStores(ownerId), 15_000, () =>
     prisma.store.findMany({
-      where: { ownerId },
+      where: { ownerId, isDeleted: false },
       select: storeInclude,
       orderBy: { createdAt: 'desc' },
     }),
@@ -252,8 +269,9 @@ export const deleteStore = async (storeId: string, user: { id: string; role: Rol
     throw new AppError('You can only manage your own stores', 403);
   }
 
-  await prisma.store.delete({
+  await prisma.store.update({
     where: { id: storeId },
+    data: { isDeleted: true, isActive: false },
   });
 
   invalidateStoreCaches(store.ownerId, storeId);

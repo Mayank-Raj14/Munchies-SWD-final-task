@@ -56,7 +56,7 @@ adminGovernanceRouter.post(
 );
 adminGovernanceRouter.post(
   '/users/:userId/block',
-  validateRequest(userGovernanceActionSchema),
+  validateRequest(userGovernanceParamSchema),
   asyncHandler(blockGlobalUser),
 );
 adminGovernanceRouter.delete(

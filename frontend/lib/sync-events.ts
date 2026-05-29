@@ -84,7 +84,7 @@ export const useSyncedRefresh = (
 
       timer = window.setTimeout(() => {
         void refreshRef.current();
-      }, 120);
+      }, 50);
     };
 
     const onSync = (event: Event) => {

@@ -16,6 +16,7 @@ const pageTitles: Record<string, string> = {
   '/cart': 'Cart',
   '/bookings': 'Orders',
   '/profile': 'Profile',
+  '/settings': 'Settings',
   '/store-owner-request': 'Open a store',
   '/store-owner/orders': 'Seller orders',
   '/store-owner/inventory': 'Inventory',

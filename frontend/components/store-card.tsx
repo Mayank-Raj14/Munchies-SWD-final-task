@@ -40,7 +40,7 @@ function StoreCardComponent({ store, variant = 'list' }: StoreCardProps) {
         <motion.div
           whileHover={{ y: -4, scale: 1.01 }}
           whileTap={{ scale: 0.99 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          transition={{ type: 'tween', ease: 'easeOut', duration: 0.2 }}
           className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-card hover:border-border-strong hover:shadow-card-hover"
         >
           {/* Header tone banner with dynamic gradient */}
@@ -97,7 +97,7 @@ function StoreCardComponent({ store, variant = 'list' }: StoreCardProps) {
       <motion.div
         whileHover={{ y: -3, scale: 1.005 }}
         whileTap={{ scale: 0.995 }}
-        transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+        transition={{ type: 'tween', ease: 'easeOut', duration: 0.2 }}
         className="flex gap-4 rounded-2xl border border-border bg-surface p-3.5 shadow-card hover:border-border-strong hover:shadow-card-hover"
       >
         <div
@@ -115,7 +115,7 @@ function StoreCardComponent({ store, variant = 'list' }: StoreCardProps) {
               {store.name}
             </h2>
             <ChevronRight
-              className="mt-0.5 h-4 w-4 shrink-0 text-foreground-faint transition-all duration-200 group-hover:translate-x-1 group-hover:text-accent"
+              className="mt-0.5 h-4 w-4 shrink-0 text-foreground-faint transition-colors transition-transform duration-200 ease-out group-hover:translate-x-1 group-hover:text-accent"
               aria-hidden="true"
             />
           </div>

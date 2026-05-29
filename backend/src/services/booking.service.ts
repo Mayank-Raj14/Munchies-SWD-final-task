@@ -166,17 +166,16 @@ const restockBookingItems = async (
   }
 };
 
-const finishBookingWithSingleRestock = async (
+const restockAndFinishBooking = async (
   tx: Prisma.TransactionClient,
   bookingId: string,
   input: {
-    reason: string;
-    status: (typeof BookingStatus)['CANCELLED'] | (typeof BookingStatus)['EXPIRED'];
-    reviewedById?: string;
+    status: BookingStatus;
     requireCancellationRequest?: boolean;
   },
 ) => {
   const now = new Date();
+
   const claimed = await tx.booking.updateMany({
     where: {
       id: bookingId,
@@ -186,10 +185,6 @@ const finishBookingWithSingleRestock = async (
     },
     data: {
       status: input.status,
-      cancellationReviewedAt: now,
-      cancellationRejectedAt: null,
-      cancellationReviewedById: input.reviewedById,
-      cancellationReason: input.reason,
     },
   });
 
@@ -215,6 +210,40 @@ const finishBookingWithSingleRestock = async (
   invalidateBookingCaches();
   return getBookingOrThrow(bookingId, tx);
 };
+
+const finishCancellationWithSingleRestock = async (
+  tx: Prisma.TransactionClient,
+  bookingId: string,
+  input: {
+    reason: string;
+    reviewedById: string;
+    status: (typeof BookingStatus)['CANCELLED'];
+    requireCancellationRequest: boolean;
+  },
+) => {
+  const finished = await restockAndFinishBooking(tx, bookingId, {
+    status: input.status,
+    requireCancellationRequest: input.requireCancellationRequest,
+  });
+
+  if (!finished) {
+    return null;
+  }
+
+  const now = new Date();
+  await tx.booking.update({
+    where: { id: bookingId },
+    data: {
+      cancellationReviewedAt: now,
+      cancellationRejectedAt: null,
+      cancellationReviewedById: input.reviewedById,
+      cancellationReason: input.reason,
+    },
+  });
+
+  return getBookingOrThrow(bookingId, tx);
+};
+
 
 export const checkoutCart = async (userId: string, cartId: string, couponCode?: string) => {
   const booking = await prisma.$transaction(
@@ -246,6 +275,16 @@ export const checkoutCart = async (userId: string, cartId: string, couponCode?: 
         throw new AppError('Cart not found', 404);
       }
 
+      // Ensure the store is active and not deleted before proceeding
+      const store = await tx.store.findUnique({
+        where: { id: cart.storeId },
+        select: { isActive: true, isDeleted: true },
+      });
+      if (!store || !store.isActive || store.isDeleted) {
+        throw new AppError('Store is not available for checkout', 400);
+      }
+
+      // Verify user can use the store (governance checks)
       await assertUserCanUseStore(userId, cart.storeId, 'checkout from this store', tx);
 
       if (cart.items.length === 0) {
@@ -256,7 +295,6 @@ export const checkoutCart = async (userId: string, cartId: string, couponCode?: 
         if (!cartItem.item.isAvailable || cartItem.item.storeId !== cart.storeId) {
           throw new AppError('Cart contains an unavailable item', 409);
         }
-
         if (cartItem.quantity > cartItem.item.stock) {
           throw new AppError('Cart quantity exceeds available stock', 400);
         }
@@ -266,9 +304,9 @@ export const checkoutCart = async (userId: string, cartId: string, couponCode?: 
         return total.plus(new Prisma.Decimal(cartItem.item.price).mul(cartItem.quantity));
       }, new Prisma.Decimal(0));
 
-      const coupon = couponCode
-        ? await validateCouponForStore(userId, cart.storeId, couponCode, subtotalAmount, tx)
-        : null;
+      // Validate coupon only if a non-empty trimmed code is provided
+      const trimmedCode = couponCode?.trim();
+      const coupon = trimmedCode ? await validateCouponForStore(userId, cart.storeId, trimmedCode, subtotalAmount, tx) : null;
       const targetItemIds = new Set(coupon?.targetedItems.map((entry) => entry.itemId) ?? []);
       const eligibleSubtotal =
         !coupon || targetItemIds.size === 0
@@ -467,10 +505,11 @@ export const updateBookingStatus = async (
     assertStatusTransition(booking.status, status);
 
     if (status === BookingStatus.CANCELLED) {
-      const cancelled = await finishBookingWithSingleRestock(tx, bookingId, {
+      const cancelled = await finishCancellationWithSingleRestock(tx, bookingId, {
         reason: 'Cancelled by store',
-        status: BookingStatus.CANCELLED,
         reviewedById: user.id,
+        status: BookingStatus.CANCELLED,
+        requireCancellationRequest: false,
       });
 
       if (!cancelled) {
@@ -607,7 +646,7 @@ export const approveBookingCancellation = async (bookingId: string, user: UserCo
       throw new AppError('This booking cannot be cancelled', 400);
     }
 
-    const cancelled = await finishBookingWithSingleRestock(tx, bookingId, {
+    const cancelled = await finishCancellationWithSingleRestock(tx, bookingId, {
       reason: 'Cancellation approved',
       status: BookingStatus.CANCELLED,
       reviewedById: user.id,
@@ -696,8 +735,7 @@ export const rejectBookingCancellation = async (bookingId: string, user: UserCon
 };
 
 export const expireBookingWithRestock = async (bookingId: string, tx: Prisma.TransactionClient) => {
-  return finishBookingWithSingleRestock(tx, bookingId, {
-    reason: 'Order expired before collection',
+  return restockAndFinishBooking(tx, bookingId, {
     status: BookingStatus.EXPIRED,
   });
 };

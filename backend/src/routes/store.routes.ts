@@ -39,7 +39,7 @@ storeRouter.get(
 
 storeRouter.get(
   '/:id',
-  validateRequest(storeIdParamSchema),
+  validateRequest({ params: storeIdParamSchema }),
   asyncHandler(getStore),
 );
 

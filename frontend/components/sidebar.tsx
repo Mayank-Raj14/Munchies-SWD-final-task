@@ -119,7 +119,7 @@ function NavLink({ item, collapsed }: { item: SidebarItem; collapsed: boolean })
 
   return (
     <Link
-      className={`group relative flex h-9.5 items-center gap-2.5 rounded-xl px-3 text-[13px] font-semibold transition-colors duration-150 ${
+      className={`group relative flex h-9.5 items-center gap-2.5 rounded-xl px-3 text-[13px] font-semibold transition-colors transition-transform duration-200 ease-out ${
         isActive
           ? 'text-accent'
           : 'text-foreground-secondary hover:bg-surface-hover hover:text-foreground'
@@ -203,7 +203,7 @@ export function Sidebar({
             onClick={() => setCollapsed(!collapsed)}
             whileHover={{ scale: 1.12 }}
             whileTap={{ scale: 0.88 }}
-            className="absolute -right-3.5 top-[18px] flex h-7 w-7 items-center justify-center rounded-full border border-border bg-surface shadow-subtle text-foreground-muted hover:text-foreground hover:bg-surface-raised hover:border-border-strong hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3)] will-change-transform transition-all duration-150"
+            className="absolute -right-3.5 top-[18px] flex h-7 w-7 items-center justify-center rounded-full border border-border bg-surface shadow-subtle text-foreground-muted hover:text-foreground hover:bg-surface-raised hover:border-border-strong hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3)] will-change-transform transition-colors transition-transform duration-200 ease-out elevated-hover"
             type="button"
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
@@ -280,35 +280,20 @@ export function Sidebar({
 
           {/* Settings */}
           <div className="mt-auto pt-4">
-            <button
-              className={`flex h-9.5 w-full items-center gap-2.5 rounded-xl px-3 text-[13px] font-semibold transition-all duration-150 ${
-                settingsOpen
+            <Link
+              className={`flex h-9.5 w-full items-center gap-2.5 rounded-xl px-3 text-[13px] font-semibold transition-colors transition-transform duration-200 ease-out ${
+                pathname === '/settings'
                   ? 'bg-accent-muted text-accent'
                   : 'text-foreground-secondary hover:bg-surface-hover hover:text-foreground'
               }`}
-              onClick={() => setSettingsOpen((open) => !open)}
-              type="button"
+              href="/settings"
             >
               <Settings2
-                className={`h-[16px] w-[16px] shrink-0 transition-transform duration-300 ${settingsOpen ? 'rotate-45 text-accent' : 'text-foreground-muted'}`}
+                className={`h-[16px] w-[16px] shrink-0 transition-transform duration-300 ${pathname === '/settings' ? 'rotate-45 text-accent' : 'text-foreground-muted'}`}
                 aria-hidden="true"
               />
               {!collapsed ? <span>Settings</span> : null}
-            </button>
-
-            <AnimatePresence>
-              {settingsOpen && !collapsed ? (
-                <motion.div
-                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                  transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-                  className="mt-2 rounded-xl border border-border bg-surface-raised/80 p-2 backdrop-blur-md shadow-card"
-                >
-                  <ThemeSettings compact />
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
+            </Link>
           </div>
         </nav>
 
@@ -335,7 +320,7 @@ export function Sidebar({
               </div>
               {!collapsed ? (
                 <button
-                  className="mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-border text-[11px] font-semibold text-foreground-secondary transition-all duration-150 hover:bg-surface-hover hover:text-foreground hover:border-border-strong active:scale-95"
+                  className="mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-border text-[11px] font-semibold text-foreground-secondary transition-colors transition-transform duration-200 ease-out hover:bg-surface-hover hover:text-foreground hover:border-border-strong active:scale-95 elevated-hover"
                   onClick={handleLogout}
                   type="button"
                 >
@@ -377,7 +362,7 @@ export function Sidebar({
 
             return (
               <Link
-                className={`relative flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-[9.5px] font-bold transition-all duration-150 ${
+                className={`relative flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-[9.5px] font-bold transition-colors transition-transform duration-200 ease-out ${
                   isActive ? 'text-accent' : 'text-foreground-muted hover:text-foreground'
                 }`}
                 href={item.href}

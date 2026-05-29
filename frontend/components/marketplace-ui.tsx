@@ -182,7 +182,7 @@ export function ChartSkeleton({ className = '' }: { className?: string }) {
 }
 
 export const fieldClass =
-  'mt-1 w-full rounded-xl border border-border bg-canvas px-3.5 py-2.5 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-foreground-faint hover:border-border-strong focus:border-accent/60 focus:ring-2 focus:ring-accent/15 focus:bg-surface disabled:cursor-not-allowed disabled:opacity-50';
+  'mt-1 w-full rounded-xl border border-border bg-canvas px-3.5 py-2.5 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-foreground-faint hover:border-border-strong focus:border-accent/60 focus:ring-2 focus:ring-accent/15 focus:bg-surface disabled:cursor-not-allowed disabled:opacity-50 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-moz-appearance]:textfield';
 
 export const selectClass = `${fieldClass} appearance-none pr-10`;
 

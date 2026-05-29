@@ -31,3 +31,25 @@ export const authenticate: RequestHandler = async (req: AuthenticatedRequest, _r
     next(new AppError('Invalid or expired authentication token', 401));
   }
 };
+
+export const getOptionalUser = async (req: Request): Promise<AuthenticatedUser | null> => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const payload = verifyAuthToken(token);
+    const user = await getUserById(payload.userId);
+
+    return {
+      id: user.id,
+      role: user.role,
+    };
+  } catch {
+    return null;
+  }
+};
+

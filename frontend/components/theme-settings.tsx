@@ -11,6 +11,7 @@ const swatches: Record<ThemeId, string> = {
   ice: 'bg-sky-950 ring-sky-500/60',
   purple: 'bg-violet-950 ring-violet-500/60',
   emerald: 'bg-emerald-950 ring-emerald-500/60',
+  ghibli: 'bg-[#f7f3e3] ring-[#4a6b53]/40',
 };
 
 export function ThemeSettings({ compact = false }: { compact?: boolean }) {

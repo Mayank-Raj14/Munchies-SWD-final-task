@@ -25,7 +25,7 @@ export default function StoreOwnerAnalyticsPage() {
   const { isLoading: authLoading, isAuthorized } = useRequireAuth(['STORE_OWNER', 'ADMIN']);
   const [stores, setStores] = useState<Store[]>([]);
   const [storeId, setStoreId] = useState('');
-  const [threshold, setThreshold] = useState(5);
+  const [threshold, setThreshold] = useState(0);
   const [analytics, setAnalytics] = useState<StoreAnalytics | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -71,10 +71,15 @@ export default function StoreOwnerAnalyticsPage() {
       <SectionHeader title="Store analytics" description="Revenue, sales, bookings, and low-stock alerts." />
       {error ? <div className="mt-6"><Notice tone="danger">{error}</Notice></div> : null}
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-        <select className="rounded-xl border border-border bg-surface px-3 py-2.5 text-foreground shadow-subtle" onChange={(e) => setStoreId(e.target.value)} value={storeId}>
+        <select 
+         title="Store selector"
+         className="rounded-xl border border-border bg-surface px-3 py-2.5 text-foreground shadow-subtle" onChange={(e) => setStoreId(e.target.value)} value={storeId} disabled={loading}>
           {stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}
         </select>
-        <input className="rounded-xl border border-border bg-surface px-3 py-2.5 text-foreground shadow-subtle" min={0} onChange={(e) => setThreshold(Number(e.target.value))} type="number" value={threshold} />
+        <input 
+        title="Threshold"
+        placeholder="Threshold"
+        className="rounded-xl border border-border bg-surface px-3 py-2.5 text-foreground shadow-subtle" min={0} onChange={(e) => setThreshold(Number(e.target.value))} type="number" value={threshold} />
       </div>
       {loading ? (
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">{[0, 1, 2, 3].map((i) => <StatCardSkeleton key={i} />)}</div>

@@ -89,6 +89,14 @@ export const addItemToCart = async (userId: string, itemId: string, quantity: nu
         throw new AppError('Item not found', 404);
       }
 
+      // Ensure the store is active and not deleted before proceeding
+      const store = await tx.store.findUnique({
+        where: { id: item.storeId },
+        select: { isActive: true, isDeleted: true },
+      });
+      if (!store || !store.isActive || store.isDeleted) {
+        throw new AppError('Store is not available for adding items to cart', 400);
+      }
       await assertUserCanUseStore(
         userId,
         item.storeId,
@@ -214,6 +222,14 @@ export const updateCartItemQuantity = async (
         throw new AppError('Cart item not found', 404);
       }
 
+            // Ensure the store is active and not deleted before proceeding
+      const store = await tx.store.findUnique({
+        where: { id: cartItem.cart.storeId },
+        select: { isActive: true, isDeleted: true },
+      });
+      if (!store || !store.isActive || store.isDeleted) {
+        throw new AppError('Store is not available for cart modification', 400);
+      }
       await assertUserCanUseStore(userId, cartItem.cart.storeId, 'modify this cart', tx);
 
       if (!cartItem.item.isAvailable) {
@@ -276,6 +292,14 @@ export const removeCartItem = async (userId: string, cartItemId: string) => {
         throw new AppError('Cart item not found', 404);
       }
 
+            // Ensure the store is active and not deleted before proceeding
+      const store = await tx.store.findUnique({
+        where: { id: cartItem.cart.storeId },
+        select: { isActive: true, isDeleted: true },
+      });
+      if (!store || !store.isActive || store.isDeleted) {
+        throw new AppError('Store is not available for cart modification', 400);
+      }
       await assertUserCanUseStore(userId, cartItem.cart.storeId, 'modify this cart', tx);
 
       await tx.cartItem.delete({
@@ -308,6 +332,14 @@ export const clearCart = async (userId: string, cartId: string) => {
         throw new AppError('Cart not found', 404);
       }
 
+            // Ensure the store is active and not deleted before proceeding
+      const store = await tx.store.findUnique({
+        where: { id: cart.storeId },
+        select: { isActive: true, isDeleted: true },
+      });
+      if (!store || !store.isActive || store.isDeleted) {
+        throw new AppError('Store is not available for cart modification', 400);
+      }
       await assertUserCanUseStore(userId, cart.storeId, 'modify this cart', tx);
 
       await tx.cartItem.deleteMany({

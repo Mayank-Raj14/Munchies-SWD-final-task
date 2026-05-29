@@ -148,6 +148,76 @@
   --selection-bg: rgba(52, 211, 153, 0.2);
 }
 
+[data-theme='ghibli'] {
+  color-scheme: light;
+
+  --bg-deep: #fbf9f1;
+  --bg-surface: #f6f2e5;
+  --bg-raised: #ede7d5;
+  --bg-muted: #e2dac5;
+  --bg-hover: #f1ebd8;
+
+  --accent: #d96b43;
+  --accent-soft: #fbf0e3;
+  --accent-muted: rgba(217, 107, 67, 0.08);
+  --accent-contrast: #ffffff;
+
+  --text-primary: #2f3e46;
+  --text-secondary: #52605b;
+  --text-muted: #788581;
+  --text-faint: #9baba6;
+
+  --border-subtle: rgba(74, 107, 83, 0.07);
+  --border-default: rgba(74, 107, 83, 0.14);
+  --border-strong: rgba(74, 107, 83, 0.28);
+
+  --shadow-card: 0 8px 24px -4px rgba(74, 107, 83, 0.08), 0 2px 6px -1px rgba(74, 107, 83, 0.04);
+  --shadow-card-hover: 0 20px 36px -4px rgba(74, 107, 83, 0.14), 0 8px 18px -2px rgba(74, 107, 83, 0.08);
+  --shadow-header: 0 1px 0 var(--border-subtle);
+  --selection-bg: rgba(217, 107, 67, 0.18);
+}
+
+[data-theme='ghibli']::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 10% 20%, rgba(95, 125, 103, 0.12), transparent 50%),
+    radial-gradient(circle at 90% 80%, rgba(217, 107, 67, 0.1), transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(244, 235, 208, 0.25), transparent 70%),
+    linear-gradient(180deg, rgba(251, 249, 241, 0.5) 0%, rgba(246, 242, 229, 0.5) 100%);
+  mix-blend-mode: multiply;
+  opacity: 0.95;
+  z-index: -1;
+}
+
+[data-theme='ghibli'] .surface-card,
+[data-theme='ghibli'] .market-card,
+[data-theme='ghibli'] .glass-panel {
+  border-radius: 20px !important;
+  border: 1px solid rgba(74, 107, 83, 0.18) !important;
+  background: rgba(246, 242, 229, 0.85) !important;
+  backdrop-filter: blur(12px) saturate(1.2) !important;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+[data-theme='ghibli'] .surface-card:hover,
+[data-theme='ghibli'] .market-card:hover,
+[data-theme='ghibli'] .glass-panel:hover {
+  transform: translateY(-4px) scale(1.01) !important;
+  border-color: rgba(217, 107, 67, 0.35) !important;
+  box-shadow: 0 20px 40px -10px rgba(217, 107, 67, 0.15), 0 0 20px 2px rgba(217, 107, 67, 0.05) !important;
+}
+
+/* Smooth transitions for theme switching */
+html, body, div, header, aside, nav, button, a, section, article, p, h1, h2, h3, h4, h5, h6, span, input, select, textarea {
+  transition: background-color 250ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 250ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 * {
   box-sizing: border-box;
 }

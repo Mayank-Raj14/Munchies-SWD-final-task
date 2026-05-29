@@ -39,13 +39,21 @@ const ensureStoreAccess = async (storeId: string, user: UserContext) => {
   return store;
 };
 
-export const listStoreItems = async (storeId: string) => {
+export const listStoreItems = async (storeId: string, currentUser?: UserContext | null) => {
   const store = await prisma.store.findUnique({
     where: { id: storeId },
   });
 
   if (!store) {
     return [];
+  }
+
+  if (!store.isActive || store.isDeleted) {
+    const isOwner = currentUser && store.ownerId === currentUser.id;
+    const isAdmin = currentUser && currentUser.role === Role.ADMIN;
+    if (!isOwner && !isAdmin) {
+      throw new AppError('Store not found', 404);
+    }
   }
 
   return prisma.item.findMany({

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Zap, Clock, Tag, Flame, Package, Rocket } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Flame } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { buildApiUrl } from '@/lib/api-url';
@@ -45,57 +45,6 @@ const formatExpiry = (endsAt: string) => {
   return 'Ending soon';
 };
 
-const getHeroLabel = (campaign: CampaignWithStore): string => {
-  if (campaign.type === 'PERCENTAGE') {
-    const val = Number(campaign.value);
-    if (val >= 40) return 'Mega Deal';
-    if (val >= 20) return 'Hot Offer';
-    return 'Special Deal';
-  }
-  return 'Flat Deal';
-};
-
-// Fallback slides shown when no real campaigns are active
-const FALLBACK_SLIDES = [
-  {
-    id: 'f1',
-    headline: 'Late Night\nHostel Deals',
-    sub: 'Order after 10 PM & save big on your midnight cravings',
-    badge: 'TONIGHT ONLY',
-    pill: 'Up to 40% off',
-    gradient: 'from-orange-950 via-zinc-900 to-zinc-950',
-    accentFrom: '#f97316',
-    accentTo: '#fb923c',
-    icon: '🌙',
-    patternColor: 'rgba(249,115,22,0.07)',
-  },
-  {
-    id: 'f2',
-    headline: 'Free Delivery\nAcross Campus',
-    sub: 'Every store, every hostel — zero delivery charge this week',
-    badge: 'THIS WEEK',
-    pill: 'Free Delivery',
-    gradient: 'from-sky-950 via-zinc-900 to-zinc-950',
-    accentFrom: '#0ea5e9',
-    accentTo: '#38bdf8',
-    icon: '🛵',
-    patternColor: 'rgba(14,165,233,0.07)',
-  },
-  {
-    id: 'f3',
-    headline: 'Midnight\nCombos',
-    sub: 'Curated combo meals from the most loved hostel stores',
-    badge: 'NEW',
-    pill: 'Starting ₹49',
-    gradient: 'from-violet-950 via-zinc-900 to-zinc-950',
-    accentFrom: '#8b5cf6',
-    accentTo: '#a78bfa',
-    icon: '🍜',
-    patternColor: 'rgba(139,92,246,0.07)',
-  },
-];
-
-// Deterministic gradient palette for real campaigns (cycles by index)
 const CAMPAIGN_PALETTES = [
   { gradient: 'from-orange-950 via-zinc-900 to-zinc-950', accentFrom: '#f97316', accentTo: '#fb923c', patternColor: 'rgba(249,115,22,0.07)', icon: '🔥' },
   { gradient: 'from-rose-950 via-zinc-900 to-zinc-950', accentFrom: '#e11d48', accentTo: '#fb7185', patternColor: 'rgba(225,29,72,0.07)', icon: '⚡' },
@@ -108,30 +57,27 @@ type SlideData = {
   id: string;
   headline: string;
   sub: string;
-  badge: string;
   pill: string;
   gradient: string;
   accentFrom: string;
   accentTo: string;
   icon: string;
   patternColor: string;
-  campaign?: CampaignWithStore;
+  campaign: CampaignWithStore;
 };
 
 function buildSlides(campaigns: CampaignWithStore[]): SlideData[] {
-  if (campaigns.length === 0) return FALLBACK_SLIDES;
-
   return campaigns.map((c, i) => {
     const palette = CAMPAIGN_PALETTES[i % CAMPAIGN_PALETTES.length];
     const discount = formatDiscount(c);
-    const label = getHeroLabel(c);
-    const minOrder = Number(c.minOrderValue) > 0 ? ` on orders above ₹${Number(c.minOrderValue).toFixed(0)}` : '';
+    const minOrder = Number(c.minOrderValue) > 0
+      ? ` on orders above ₹${Number(c.minOrderValue).toFixed(0)}`
+      : '';
 
     return {
       id: c.id,
       headline: `${discount}\nat ${c.store.name}`,
       sub: `Use code ${c.code} to save${minOrder}`,
-      badge: label.toUpperCase(),
       pill: discount,
       gradient: palette.gradient,
       accentFrom: palette.accentFrom,
@@ -143,13 +89,11 @@ function buildSlides(campaigns: CampaignWithStore[]): SlideData[] {
   });
 }
 
-// Dot grid background pattern
 function DotGrid({ color }: { color: string }) {
   return (
     <svg
       aria-hidden="true"
       className="pointer-events-none absolute inset-0 h-full w-full"
-      style={{ opacity: 1 }}
       xmlns="http://www.w3.org/2000/svg"
     >
       <defs>
@@ -162,7 +106,6 @@ function DotGrid({ color }: { color: string }) {
   );
 }
 
-// Timer countdown chip
 function TimeChip({ endsAt }: { endsAt: string }) {
   const [label, setLabel] = useState(() => formatExpiry(endsAt));
 
@@ -207,7 +150,6 @@ export function CampaignBanner() {
     setCurrent(idx);
   }, []);
 
-  // Auto-advance
   useEffect(() => {
     if (isPaused || slides.length <= 1) return;
     timerRef.current = setInterval(next, 5000);
@@ -218,11 +160,25 @@ export function CampaignBanner() {
 
   if (isLoading) {
     return (
-      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl" style={{ height: 'clamp(200px, 38vw, 400px)' }}>
+      <div
+        className="relative overflow-hidden rounded-2xl sm:rounded-3xl"
+        style={{ height: 'clamp(200px, 38vw, 400px)' }}
+      >
         <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900" />
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="h-2 w-24 animate-pulse rounded-full bg-white/10" />
         </div>
+      </div>
+    );
+  }
+
+  if (slides.length === 0) {
+    return (
+      <div
+        className="flex items-center justify-center rounded-2xl sm:rounded-3xl border border-dashed border-zinc-800 bg-zinc-900/50"
+        style={{ height: 'clamp(120px, 20vw, 180px)' }}
+      >
+        <p className="text-sm font-medium text-zinc-500">No campaigns to show</p>
       </div>
     );
   }
@@ -236,7 +192,6 @@ export function CampaignBanner() {
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      {/* ── Slide body ── */}
       <AnimatePresence mode="wait">
         <motion.div
           key={slide.id}
@@ -246,10 +201,8 @@ export function CampaignBanner() {
           transition={{ duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
           className={`absolute inset-0 bg-gradient-to-br ${slide.gradient}`}
         >
-          {/* Dot grid */}
           <DotGrid color={slide.patternColor} />
 
-          {/* Orb glow */}
           <div
             className="pointer-events-none absolute -left-16 -top-16 h-72 w-72 rounded-full blur-3xl"
             style={{ background: `radial-gradient(circle, ${slide.accentFrom}33 0%, transparent 70%)` }}
@@ -259,9 +212,7 @@ export function CampaignBanner() {
             style={{ background: `radial-gradient(circle, ${slide.accentTo}22 0%, transparent 70%)` }}
           />
 
-          {/* Content */}
           <div className="relative flex h-full flex-col justify-between p-6 sm:p-8 lg:p-10">
-            {/* Top row */}
             <div className="flex items-start justify-between">
               <motion.span
                 initial={{ opacity: 0, y: -8 }}
@@ -275,27 +226,21 @@ export function CampaignBanner() {
                 }}
               >
                 <Flame className="h-3 w-3" aria-hidden="true" />
-                {slide.badge}
+                {slide.campaign.type === 'PERCENTAGE' ? 'DISCOUNT' : 'FLAT DEAL'}
               </motion.span>
 
-              {slide.campaign ? (
-                <TimeChip endsAt={slide.campaign.endsAt} />
-              ) : null}
+              <TimeChip endsAt={slide.campaign.endsAt} />
             </div>
 
-            {/* Headline + sub */}
             <div className="space-y-3">
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.15, duration: 0.45 }}
               >
-                {/* Big emoji icon */}
                 <div className="mb-2 text-3xl sm:text-4xl leading-none select-none" aria-hidden="true">
                   {slide.icon}
                 </div>
-
-                {/* Main headline */}
                 <h2
                   className="whitespace-pre-line font-black leading-none tracking-tight text-white"
                   style={{
@@ -316,9 +261,7 @@ export function CampaignBanner() {
                 <p className="text-sm font-medium text-white/60 sm:text-base max-w-xs">
                   {slide.sub}
                 </p>
-
-                {/* Coupon code chip */}
-                {slide.campaign?.code ? (
+                {slide.campaign.code ? (
                   <span
                     className="rounded-lg border border-white/20 bg-white/10 px-3 py-1 font-mono text-xs font-bold text-white backdrop-blur-sm sm:text-sm"
                     style={{ boxShadow: `0 0 12px ${slide.accentFrom}33` }}
@@ -329,7 +272,6 @@ export function CampaignBanner() {
               </motion.div>
             </div>
 
-            {/* Bottom row: pill + dots */}
             <div className="flex items-end justify-between">
               <motion.div
                 initial={{ opacity: 0, scale: 0.85 }}
@@ -349,7 +291,6 @@ export function CampaignBanner() {
                 </span>
               </motion.div>
 
-              {/* Dot indicators */}
               {slides.length > 1 ? (
                 <div className="flex items-center gap-1.5">
                   {slides.map((_, idx) => (
@@ -377,7 +318,6 @@ export function CampaignBanner() {
         </motion.div>
       </AnimatePresence>
 
-      {/* ── Prev / Next arrows (visible on hover) ── */}
       {slides.length > 1 ? (
         <>
           <button
@@ -399,7 +339,6 @@ export function CampaignBanner() {
         </>
       ) : null}
 
-      {/* ── Auto-play progress bar ── */}
       {slides.length > 1 && !isPaused ? (
         <div className="absolute bottom-0 left-0 right-0 h-[2px] overflow-hidden">
           <motion.div

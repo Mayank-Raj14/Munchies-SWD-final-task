@@ -30,7 +30,7 @@ itemRouter.post(
   authenticate,
   requireRole(Role.STORE_OWNER, Role.ADMIN),
   uploadItemImage.single('image'),
-  validateRequest(createItemSchema),
+  validateRequest({ body: createItemSchema }),
   asyncHandler(createItemForStore),
 );
 
@@ -39,7 +39,7 @@ itemRouter.patch(
   authenticate,
   requireRole(Role.STORE_OWNER, Role.ADMIN),
   uploadItemImage.single('image'),
-  validateRequest(updateItemSchema),
+  validateRequest({ body: updateItemSchema }),
   asyncHandler(updateItemForStore),
 );
 
@@ -47,6 +47,6 @@ itemRouter.delete(
   '/:itemId',
   authenticate,
   requireRole(Role.STORE_OWNER, Role.ADMIN),
-  validateRequest(itemParamSchema),
+  validateRequest({ params: itemParamSchema }),
   asyncHandler(deleteItemForStore),
 );

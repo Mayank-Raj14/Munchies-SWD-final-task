@@ -64,7 +64,7 @@ export const registerUser = (payload: RegisterPayload) => requestAuth('register'
 
 export const loginUser = (payload: LoginPayload) => requestAuth('login', payload);
 
-export const getCurrentUser = async () => {
+export const getCurrentUser = async (options?: { signal?: AbortSignal }) => {
   if (!getAuthToken()) {
     throw new ApiError('Authentication is required', 401);
   }
@@ -72,6 +72,7 @@ export const getCurrentUser = async () => {
   const url = buildApiUrl(API_ROUTES.auth.me);
   const response = await apiFetch(url, {
     headers: authHeaders(),
+    signal: options?.signal,
   });
 
   return parseApiResponse(response, 'Unable to load current user', {

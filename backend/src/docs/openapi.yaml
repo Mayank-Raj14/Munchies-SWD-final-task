@@ -1,534 +1,392 @@
-# API Documentation
-
-Base URL:
-
-```text
-http://localhost:5000/api
-```
-
-Authentication:
-
-* JWT Bearer Token
-* Protected routes require:
-
-```http
-Authorization: Bearer <token>
-```
-
----
-
-# Authentication APIs
-
-## Register User
-
-### Endpoint
-
-```http
-POST /api/auth/register
-```
-
-### Request Body
-
-```json
-{
-  "name": "Mayank",
-  "email": "mayank@example.com",
-  "password": "password123",
-  "hostelId": "hostel-id"
-}
-```
-
-### Response
-
-```json
-{
-  "token": "jwt-token",
-  "user": {
-    "id": "user-id",
-    "email": "mayank@example.com",
-    "role": "USER"
-  }
-}
-```
-
----
-
-## Login
-
-### Endpoint
-
-```http
-POST /api/auth/login
-```
-
-### Request Body
-
-```json
-{
-  "email": "mayank@example.com",
-  "password": "password123"
-}
-```
-
----
-
-## Current User
-
-### Endpoint
-
-```http
-GET /api/auth/me
-```
-
-### Protected
-
-Yes
-
----
-
-# Hostel APIs
-
-## Get All Hostels
-
-### Endpoint
-
-```http
-GET /api/hostels
-```
-
-### Response
-
-```json
-[
-  {
-    "id": "hostel-id",
-    "name": "Valmiki"
-  }
-]
-```
-
----
-
-# Store APIs
-
-## Get All Stores
-
-### Endpoint
-
-```http
-GET /api/stores
-```
-
-### Query Parameters
-
-| Param    | Description      |
-| -------- | ---------------- |
-| page     | Pagination page  |
-| limit    | Items per page   |
-| hostelId | Filter by hostel |
-| search   | Store search     |
-
----
-
-## Get Store By ID
-
-### Endpoint
-
-```http
-GET /api/stores/:id
-```
-
----
-
-## Create Store
-
-### Endpoint
-
-```http
-POST /api/stores
-```
-
-### Protected
-
-Yes (`STORE_OWNER` or `ADMIN`)
-
-### Request Body
-
-```json
-{
-  "name": "Night Canteen",
-  "description": "Late night snacks",
-  "hostelId": "hostel-id"
-}
-```
-
----
-
-## Update Store
-
-### Endpoint
-
-```http
-PATCH /api/stores/:id
-```
-
-### Protected
-
-Yes
-
----
-
-## Delete Store
-
-### Endpoint
-
-```http
-DELETE /api/stores/:id
-```
-
-### Protected
-
-Yes
-
----
-
-# Item APIs
-
-## Get Store Items
-
-### Endpoint
-
-```http
-GET /api/stores/:storeId/items
-```
-
----
-
-## Create Item
-
-### Endpoint
-
-```http
-POST /api/stores/:storeId/items
-```
-
-### Request Body
-
-```json
-{
-  "name": "Burger",
-  "price": 120,
-  "stock": 20,
-  "description": "Cheese burger"
-}
-```
-
----
-
-## Update Item
-
-### Endpoint
-
-```http
-PATCH /api/items/:id
-```
-
----
-
-## Delete Item
-
-### Endpoint
-
-```http
-DELETE /api/items/:id
-```
-
----
-
-# Cart APIs
-
-## Get User Cart
-
-### Endpoint
-
-```http
-GET /api/carts
-```
-
-### Protected
-
-Yes
-
----
-
-## Add Item To Cart
-
-### Endpoint
-
-```http
-POST /api/carts/items
-```
-
-### Request Body
-
-```json
-{
-  "itemId": "item-id",
-  "quantity": 2
-}
-```
-
----
-
-## Update Cart Quantity
-
-### Endpoint
-
-```http
-PATCH /api/carts/items/:id
-```
-
----
-
-## Remove Cart Item
-
-### Endpoint
-
-```http
-DELETE /api/carts/items/:id
-```
-
----
-
-# Booking APIs
-
-## Create Booking
-
-### Endpoint
-
-```http
-POST /api/bookings
-```
-
-### Protected
-
-Yes
-
----
-
-## Get User Bookings
-
-### Endpoint
-
-```http
-GET /api/bookings
-```
-
----
-
-## Get Booking By ID
-
-### Endpoint
-
-```http
-GET /api/bookings/:id
-```
-
----
-
-## Cancel Booking Request
-
-### Endpoint
-
-```http
-POST /api/bookings/:id/cancel
-```
-
----
-
-# Ownership Request APIs
-
-## Submit Store Ownership Request
-
-### Endpoint
-
-```http
-POST /api/store-ownership-requests
-```
-
----
-
-## Get My Requests
-
-### Endpoint
-
-```http
-GET /api/store-ownership-requests/me
-```
-
----
-
-# Admin APIs
-
-## Get Ownership Requests
-
-### Endpoint
-
-```http
-GET /api/admin/store-ownership-requests
-```
-
-### Protected
-
-Yes (`ADMIN`)
-
----
-
-## Approve Ownership Request
-
-### Endpoint
-
-```http
-POST /api/admin/store-ownership-requests/:id/approve
-```
-
----
-
-## Reject Ownership Request
-
-### Endpoint
-
-```http
-POST /api/admin/store-ownership-requests/:id/reject
-```
-
----
-
-# Coupon APIs
-
-## Get Active Campaigns
-
-### Endpoint
-
-```http
-GET /api/campaigns/active
-```
-
----
-
-## Create Campaign
-
-### Endpoint
-
-```http
-POST /api/campaigns
-```
-
-### Request Body
-
-```json
-{
-  "code": "WELCOME50",
-  "discountType": "PERCENTAGE",
-  "discountValue": 50,
-  "minOrderAmount": 200
-}
-```
-
----
-
-## Apply Coupon
-
-### Endpoint
-
-```http
-POST /api/coupons/apply
-```
-
----
-
-# Analytics APIs
-
-## User Analytics
-
-### Endpoint
-
-```http
-GET /api/analytics/user
-```
-
----
-
-## Store Analytics
-
-### Endpoint
-
-```http
-GET /api/analytics/store/:storeId
-```
-
----
-
-# Email Preference APIs
-
-## Get Preferences
-
-### Endpoint
-
-```http
-GET /api/email-preferences
-```
-
----
-
-## Update Preferences
-
-### Endpoint
-
-```http
-PATCH /api/email-preferences
-```
-
----
-
-# Health Check
-
-## Health Endpoint
-
-### Endpoint
-
-```http
-GET /api/health
-```
-
-### Response
-
-```json
-{
-  "status": "ok"
-}
-```
-
----
-
-# Error Response Format
-
-```json
-{
-  "message": "Unauthorized",
-  "statusCode": 401
-}
-```
-
----
-
-# Roles
-
-| Role        | Permissions                        |
-| ----------- | ---------------------------------- |
-| USER        | Browse marketplace, place bookings |
-| STORE_OWNER | Manage stores, inventory, orders   |
-| ADMIN       | Governance, approvals, moderation  |
-
-```
-```
+openapi: "3.0.3"
+info:
+  title: Munchies API
+  version: "1.0.0"
+  description: Hostel marketplace API for student-run food stores
+
+servers:
+  - url: http://localhost:5000/api
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        statusCode:
+          type: integer
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /auth/register:
+    post:
+      summary: Register user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+                hostelId:
+                  type: string
+      responses:
+        "201":
+          description: Registered successfully
+
+  /auth/login:
+    post:
+      summary: Login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Login successful
+
+  /auth/me:
+    get:
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user data
+
+  /hostels:
+    get:
+      summary: Get all hostels
+      security: []
+      responses:
+        "200":
+          description: List of hostels
+
+  /stores:
+    get:
+      summary: Get all stores
+      security: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+        - in: query
+          name: hostelId
+          schema:
+            type: string
+        - in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of stores
+    post:
+      summary: Create store
+      responses:
+        "201":
+          description: Store created
+
+  /stores/{id}:
+    get:
+      summary: Get store by ID
+      security: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Store data
+    patch:
+      summary: Update store
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Store updated
+    delete:
+      summary: Delete store
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Store deleted
+
+  /stores/{storeId}/items:
+    get:
+      summary: Get store items
+      security: []
+      parameters:
+        - in: path
+          name: storeId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of items
+    post:
+      summary: Create item
+      parameters:
+        - in: path
+          name: storeId
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Item created
+
+  /items/{id}:
+    patch:
+      summary: Update item
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Item updated
+    delete:
+      summary: Delete item
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Item deleted
+
+  /carts:
+    get:
+      summary: Get user cart
+      responses:
+        "200":
+          description: Cart data
+
+  /carts/items:
+    post:
+      summary: Add item to cart
+      responses:
+        "201":
+          description: Item added
+
+  /carts/items/{id}:
+    patch:
+      summary: Update cart item quantity
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated
+    delete:
+      summary: Remove cart item
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Removed
+
+  /bookings:
+    post:
+      summary: Create booking
+      responses:
+        "201":
+          description: Booking created
+    get:
+      summary: Get user bookings
+      responses:
+        "200":
+          description: List of bookings
+
+  /bookings/{id}:
+    get:
+      summary: Get booking by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Booking data
+
+  /bookings/{id}/cancel:
+    post:
+      summary: Cancel booking
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Cancellation requested
+
+  /store-ownership-requests:
+    post:
+      summary: Submit store ownership request
+      responses:
+        "201":
+          description: Request submitted
+
+  /store-ownership-requests/me:
+    get:
+      summary: Get my ownership requests
+      responses:
+        "200":
+          description: List of requests
+
+  /admin/store-ownership-requests:
+    get:
+      summary: Get all ownership requests
+      responses:
+        "200":
+          description: List of requests
+
+  /admin/store-ownership-requests/{id}/approve:
+    post:
+      summary: Approve ownership request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Request approved
+
+  /admin/store-ownership-requests/{id}/reject:
+    post:
+      summary: Reject ownership request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Request rejected
+
+  /campaigns/active:
+    get:
+      summary: Get active campaigns
+      security: []
+      responses:
+        "200":
+          description: List of active campaigns
+
+  /campaigns:
+    post:
+      summary: Create campaign
+      responses:
+        "201":
+          description: Campaign created
+
+  /coupons/apply:
+    post:
+      summary: Apply coupon
+      responses:
+        "200":
+          description: Coupon applied
+
+  /analytics/user:
+    get:
+      summary: Get user analytics
+      responses:
+        "200":
+          description: User analytics
+
+  /analytics/store/{storeId}:
+    get:
+      summary: Get store analytics
+      parameters:
+        - in: path
+          name: storeId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Store analytics
+
+  /email-preferences:
+    get:
+      summary: Get email preferences
+      responses:
+        "200":
+          description: Email preferences
+    patch:
+      summary: Update email preferences
+      responses:
+        "200":
+          description: Preferences updated

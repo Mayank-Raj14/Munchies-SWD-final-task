@@ -1,7 +1,6 @@
 import type { Response } from 'express';
 
 import type { AuthenticatedRequest } from '../middleware/auth.middleware.js';
-import { getOptionalUser } from '../middleware/auth.middleware.js';
 import {
   createStore,
   deleteStore,
@@ -26,8 +25,7 @@ export const getStores = async (req: AuthenticatedRequest, res: Response) => {
 };
 
 export const getStore = async (req: AuthenticatedRequest, res: Response) => {
-  const currentUser = await getOptionalUser(req);
-  const store = await getStoreById(req.params.id ?? '', currentUser);
+  const store = await getStoreById(req.params.id ?? '');
 
   res.status(200).json({ store });
 };

@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: munchies
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: mayankkapass
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -22,7 +22,7 @@ services:
       - ./backend/.env
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://postgres:mayankkapass@db:5432/munchies?schema=public
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/munchies?schema=public
       FRONTEND_ORIGIN: http://localhost:3000
     depends_on:
       db:
@@ -49,7 +49,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: postgresql://postgres:mayankkapass@db:5432/munchies?schema=public
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/munchies?schema=public
     command: sh -c "npx prisma migrate deploy && npx prisma generate && npx prisma studio --schema=prisma/schema.prisma --port 5555 --browser none --hostname 0.0.0.0"
     depends_on:
       db:
